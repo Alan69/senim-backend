@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-10 offset-lg-1">
+            <h2>История Тестов</h2>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Название Теста</th>
+                        <th>Дата</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for test in tests %}
+                    <tr>
+                        <td>{{ test.title }}</td>
+                        <td>{{ test.date_created }}</td>
+                        <td>
+                            <a href="{% url 'history_detail' test.pk %}" class="btn btn-primary">Просмотр</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">Нет результатов</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

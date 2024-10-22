@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            {% for test in tests %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">{{ test.title }}</h4>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ test.number_of_questions }} вопросов</p>
+                    <p class="card-text">{{ test.time }} минут</p>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="mt-4">
+                <a href="{% url 'take_test' 1 %}" class="btn btn-primary">Начать тест</a>
+            </div> 
+        </div>
+    </div>
+</div>
+{% endblock %}

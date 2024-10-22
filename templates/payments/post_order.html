@@ -1,0 +1,50 @@
+{% extends 'payments/payment.html' %} 
+{% load static %}
+{%block content%} 
+
+<main id="main" class="main">
+  <div class="kaspi__cheque col-sm-6 col-xl-5">
+    <img src="{% static 'img/logo-kaspi-bank.png'%}" alt="" />
+    <h3 class="kaspi__cheque-title">Образование</h3>
+    <div class="kaspi__cheque-header">
+      <div class="kaspi__cheque-inner">
+      </div>
+      <div>
+        <h5>Synaqtest</h5>
+        <h5>Номер заказа: 55</h5>
+      </div>
+    </div>
+    <div class="kaspi__cheque-qr-button">
+      <a
+        href="{% url 'product_detail' 1 %}"
+        >Оплатить по QR коду</a
+      >
+    </div>
+    
+    <div class="kaspi__cheque-info">
+      <div class="kaspi__cheque-text for-cheque">Сумма</div>
+      <div class="kaspi__cheque-text">1500 ₸</div>
+    </div>
+    <div class="kaspi__cheque-info">
+      <div class="kaspi__cheque-text for-cheque">Комиссия</div>
+      <div class="kaspi__cheque-text">0 ₸</div>
+    </div>
+    <div class="kaspi__cheque-info">
+      <div class="kaspi__cheque-text for-cheque">Продукт</div>
+      <div class="kaspi__cheque-text">ОЗП</div>
+    </div>
+    <div class="kaspi__cheque-info">
+      <div class="kaspi__cheque-text for-cheque">ФИО палтельщика</div>
+      <div class="kaspi__cheque-text">
+        {{request.user.last_name|slice:":1"}}. {{request.user.first_name}} 
+      </div>
+    </div>
+    <div class="kaspi__cheque-info">
+      <div class="kaspi__cheque-text for-cheque">Курс</div>
+      <div class="kaspi__cheque-text">Synaqtest</div>
+    </div>
+    <div class="pdw"></div>
+  </div>
+</main>
+ {%endblock%}
+

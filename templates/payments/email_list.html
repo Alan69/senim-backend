@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email List</title>
+</head>
+<body>
+    <h1>Emails from kaspi.payments@kaspibank.kz</h1>
+    <ul>
+        {% for email in email_data %}
+            <li>
+                <strong>ФИО учащегося:</strong> {{ email.student_name }}<br>
+                <strong>ЖСН|ИИН:</strong> {{ email.jsn_iin }}<br>
+                <strong>Платеж на сумму:</strong> {{ email.payment_amount }}
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

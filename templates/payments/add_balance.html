@@ -1,0 +1,19 @@
+<!-- add_balance.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Balance</title>
+</head>
+<body>
+    <h1>Add Balance</h1>
+    <form action="{% url 'add_balance' %}" method="post">
+        {% csrf_token %}
+        <label for="jsn_iin">JSN IIN:</label><br>
+        <input type="text" id="jsn_iin" name="jsn_iin" value="{{ data.jsn_iin }}"><br><br>
+        <label for="payment_amount">Payment Amount:</label><br>
+        <input type="text" id="payment_amount" name="payment_amount" value="{{ data.payment_amount }}"><br><br>
+        <button type="submit">Add Balance</button>
+    </form>
+</body>
+</html>

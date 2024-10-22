@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-10 offset-lg-1">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Результаты Теста: {{ test.title }}</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Вопрос</th>
+                                    <th>Ваш Ответ</th>
+                                    <th>Правильный Ответ</th>
+                                    <th>Балл</th>
+                                    <th>Правильность</th>
+                                    {% comment %} <th>Дата</th> {% endcomment %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in history %}
+                                <tr>
+                                    <td>{{ item.result.question.text }}</td>
+                                    <td>{{ item.result.selected_option.text }}</td>
+                                    <td>{{ item.correct_option.text }}</td>
+                                    <td>{{ item.result.score }}</td>
+                                    <td>{% if item.result.is_correct %}<span class="badge bg-success">Правильно</span>{% else %}<span class="badge bg-danger">Неправильно</span>{% endif %}</td>
+                                    {% comment %} <td>{{ item.result.created }}</td> {% endcomment %}
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">Нет результатов</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block content %}
+{% load static %}
+
+<!-- Full Screen Search Start -->
+<div class="modal fade" id="searchModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content" style="background: rgba(29, 29, 39, 0.7);">
+            <div class="modal-header border-0">
+                <button type="button" class="btn bg-white btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body d-flex align-items-center justify-content-center">
+                <div class="input-group" style="max-width: 600px;">
+                    <input type="text" class="form-control bg-transparent border-light p-3" placeholder="Введите ключевое слово для поиска">
+                    <button class="btn btn-light px-4"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Full Screen Search End -->
+
+<!-- About Start -->
+<div class="container-xxl py-5">
+    <div class="container px-lg-5">
+        <div class="row g-5">
+            <div class="col-lg-6 wow fadeInUp" data-wow-delay="0.1s">
+                <div class="section-title position-relative mb-4 pb-2">
+                    <h6 class="position-relative text-primary ps-4">О нас</h6>
+                    <h2 class="mt-2">Лучшие онлайн-курсы</h2>
+                </div>
+                <p class="mb-4">Synaqtest — это образовательная компания, которая использует ИИ в тестах, чтобы помочь людям эффективно учиться. Мы предоставляем самые передовые технологии и лучшие решения для обучения.</p>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <h6 class="mb-3"><i class="fa fa-check text-primary me-2"></i>Обучение онлайн из дома</h6>
+                        <h6 class="mb-0"><i class="fa fa-check text-primary me-2"></i>Профессиональный персонал</h6>
+                    </div>
+                    <div class="col-sm-6">
+                        <h6 class="mb-3"><i class="fa fa-check text-primary me-2"></i>Поддержка 24/7</h6>
+                        <h6 class="mb-0"><i class="fa fa-check text-primary me-2"></i>Честные цены</h6>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center mt-4">
+                    <!-- <a class="btn btn-primary rounded-pill px-4 me-3" href="">Подробнее</a> -->
+                    <a class="btn btn-outline-primary btn-square me-3" href=""><i class="fab fa-facebook-f"></i></a>
+                    <a class="btn btn-outline-primary btn-square me-3" href=""><i class="fab fa-twitter"></i></a>
+                    <a class="btn btn-outline-primary btn-square me-3" href=""><i class="fab fa-instagram"></i></a>
+                    <a class="btn btn-outline-primary btn-square" href=""><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <img class="img-fluid wow zoomIn" data-wow-delay="0.5s" src="{% static 'img/about.jpg' %}">
+            </div>
+        </div>
+    </div>
+</div>
+<!-- About End -->
+
+<!-- Service Start -->
+<div class="container-xxl py-5">
+    <div class="container px-lg-5">
+        <div class="section-title position-relative text-center mb-5 pb-2 wow fadeInUp" data-wow-delay="0.1s">
+            <h6 class="position-relative d-inline text-primary ps-4">Выберите продукт:</h6>
+            <h2 class="mt-2">Какие решения мы предоставляем</h2>
+        </div>
+        <div class="row g-4">
+            {% for test in tests %}
+            <div class="col-lg-4 col-md-6 wow zoomIn" data-wow-delay="0.1s">
+                <div class="service-item d-flex flex-column justify-content-center text-center rounded">
+                    <div class="service-icon flex-shrink-0">
+                        <i class="fa fa-home fa-2x"></i>
+                    </div>
+                    <h5 class="mb-3">{{ test.title }}</h5>
+                    <p>{{ test.sum }} тенге</p>
+                    <a href="{% url 'product_detail' test.pk %}" class="btn px-3 mt-auto mx-auto">Оплатить</a>
+                    
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+<!-- Service End -->
+
+{% endblock %}

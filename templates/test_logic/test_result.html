@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0" style="color: white;">Результаты теста: {{ test.title }}</h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info" role="alert">
+                        <p class="mb-0">Ваш результат: <strong>{{ score }}</strong> / 100</p>
+                        <p class="mb-0">Правильных ответов: <strong>{{ correct }}</strong></p>
+                        <p class="mb-0">Неправильных ответов: <strong>{{ wrong }}</strong></p>
+                    </div>
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="square-box">
+                                <h4 class="mt-5">Общая информация</h4>
+                                <p><strong>Имя-фамилия:</strong> {{ request.user.username }}</p>
+                                <p><strong>Достижение (%):</strong> 100%{{ achievement_percentage }}</p>
+                            </div>
+
+                            <div class="square-box">
+                                <h4 class="mt-5">Прогресс учащегося</h4>
+                                <!-- Include relevant student progress details here -->
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="square-box">
+                                <h4 class="mt-5">Показатели успеха по предметам</h4>
+                                <ul>
+                                    <li>Русская литература</li>
+                                </ul>
+                            </div>
+
+                            <div class="square-box">
+                                <h4 class="mt-5">Сравнительный анализ по предметам</h4>
+                                Русская литература 76%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+
+                    <button type="button" class="btn btn-success" id="errorAnalysisButton">
+                        Работа над ошибками
+                    </button>
+
+                    <!-- Modal -->
+                    <div class="modal fade" id="errorAnalysisModal" tabindex="-1" role="dialog" aria-labelledby="errorAnalysisModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="errorAnalysisModalLabel">Работа над ошибками</h5>
+                                    <!-- <button type="button" class="close" data-dismiss="modal" aria-label="Close"> -->
+                                        <!-- <span aria-hidden="true">&times;</span>
+                                    </button> -->
+                                </div>
+                                <div class="modal-body">
+                                    {% for result in results %}
+                                        <div class="card mb-4">
+                                            <div class="card-body">
+                                                <p class="mb-0"><strong>Вопрос:</strong> {{ result.question.text }}</p>
+                                                <p class="mb-0"><strong>Ваш ответ:</strong> {{ result.selected_option.text }}</p>
+                                                {% if not result.is_correct %}
+                                                    <div class="alert alert-danger mt-3" role="alert">
+                                                        <p class="mb-0"><strong>Неправильно!</strong></p>
+                                                        <p class="mb-0"><strong>Правильный ответ:</strong> {{ result.correct_option.text }}</p>
+                                                    </div>
+                                                    <p class="mt-3"><strong>Рекомендуемая литература:</strong></p>
+                                                    <div class="spinner-border text-primary book-suggestions-spinner" role="status">
+                                                        <span class="sr-only">Загрузка...</span>
+                                                    </div>
+                                                    <ul class="list-group mt-3 book-suggestions" style="display: none;">
+                                                        {% for book in result.book_suggestions %}
+                                                            <li class="list-group-item">
+                                                                <a href="{{ book.book_url }}" target="_blank">{{ book.book_title }}</a>
+                                                            </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% else %}
+                                                    <div class="alert alert-success mt-3" role="alert">
+                                                        <p class="mb-0"><strong>Правильно!</strong></p>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <!-- <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                                </div> -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            document.getElementById('errorAnalysisButton').addEventListener('click', function() {
+                                $('#errorAnalysisModal').modal('show');
+                            });
+
+                            setTimeout(function() {
+                                let spinners = document.querySelectorAll('.book-suggestions-spinner');
+                                let bookSuggestions = document.querySelectorAll('.book-suggestions');
+                                
+                                spinners.forEach(function(spinner, index) {
+                                    spinner.style.display = 'none';
+                                    bookSuggestions[index].style.display = 'block';
+                                    bookSuggestions[index].style.transition = 'opacity 1s';
+                                    bookSuggestions[index].style.opacity = '0';
+                                    setTimeout(function() {
+                                        bookSuggestions[index].style.opacity = '1';
+                                    }, 5);
+                                });
+                            }, 5); 
+                        });
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

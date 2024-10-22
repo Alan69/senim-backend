@@ -1,0 +1,220 @@
+{% extends 'test_logic/test.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row mb-3 justify-content-center">
+        <div class="col text-center">
+            <button id="previous-test" class="btn btn-secondary mr-2">Предыдущий предмет</button>
+            <button id="next-test" class="btn btn-primary">Следующий предмет</button>
+        </div>
+    </div>
+    <div class="row mb-3">
+        <div class="col text-center">
+            <h2>Бөлім: {{ test.title }}</h2>
+        </div>
+    </div>
+    <div class="row mb-3">
+        <div class="col text-center">
+            <div id="question-buttons" class="btn-group">
+                <!-- Question number buttons will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow mb-3">
+                <div class="card-body">
+                    <div id="question-container">
+                        <!-- The current question will be displayed here -->
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-3">
+                <button id="previous-question" class="btn btn-secondary mr-2" style="display: none;">Предыдущий вопрос</button>
+                <button id="next-question" class="btn btn-primary mr-2">Следующий вопрос</button>
+                <button id="finish-test" class="btn btn-danger" style="display: none;">Завершить тест</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let currentQuestionIndex = 0;
+        let questions = [];
+        let responses = {};
+
+        function loadQuestions() {
+            fetch("{% url 'take_test' test.pk %}", {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                questions = data.questions;
+                renderQuestion();
+                renderQuestionButtons();
+            });
+        }
+
+        function renderQuestion() {
+            const questionContainer = document.getElementById('question-container');
+            questionContainer.innerHTML = '';
+
+            if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) {
+                return;
+            }
+
+            const question = questions[currentQuestionIndex];
+            const card = document.createElement('div');
+            card.classList.add('card', 'mb-3');
+
+            const cardBody = document.createElement('div');
+            cardBody.classList.add('card-body');
+
+            const cardTitle = document.createElement('h5');
+            cardTitle.classList.add('card-title');
+            cardTitle.textContent = question.text;
+
+            cardBody.appendChild(cardTitle);
+
+            question.options.forEach(option => {
+                const formCheck = document.createElement('div');
+                formCheck.classList.add('form-check');
+
+                const input = document.createElement('input');
+                input.classList.add('form-check-input');
+                input.type = 'radio';
+                input.name = `question_${question.id}`;
+                input.id = `option_${option.id}`;
+                input.value = option.id;
+                if (responses[question.id] === option.id.toString()) {
+                    input.checked = true;
+                }
+
+                const label = document.createElement('label');
+                label.classList.add('form-check-label');
+                label.setAttribute('for', `option_${option.id}`);
+                label.textContent = option.text;
+
+                formCheck.appendChild(input);
+                formCheck.appendChild(label);
+                cardBody.appendChild(formCheck);
+            });
+
+            card.appendChild(cardBody);
+            questionContainer.appendChild(card);
+
+            updateNavigationButtons();
+        }
+
+        function renderQuestionButtons() {
+            const questionButtons = document.getElementById('question-buttons');
+            questionButtons.innerHTML = '';
+
+            questions.forEach((question, index) => {
+                const button = document.createElement('button');
+                button.classList.add('btn', 'btn-secondary', 'mb-2');
+                button.textContent = index + 1; // Question numbers start from 1
+
+                button.addEventListener('click', function() {
+                    currentQuestionIndex = index;
+                    renderQuestion();
+                    highlightCurrentButton();
+                });
+
+                questionButtons.appendChild(button);
+            });
+
+            highlightCurrentButton();
+        }
+
+        function highlightCurrentButton() {
+            const questionButtons = document.getElementById('question-buttons');
+            const buttons = questionButtons.getElementsByClassName('btn');
+
+            Array.from(buttons).forEach((button, index) => {
+                if (index === currentQuestionIndex) {
+                    button.classList.remove('btn-secondary');
+                    button.classList.add('btn-primary');
+                } else {
+                    button.classList.remove('btn-primary');
+                    button.classList.add('btn-secondary');
+                }
+            });
+        }
+
+        function updateNavigationButtons() {
+            const prevButton = document.getElementById('previous-question');
+            const nextButton = document.getElementById('next-question');
+            const finishButton = document.getElementById('finish-test');
+
+            prevButton.style.display = currentQuestionIndex > 0 ? 'inline-block' : 'none';
+            nextButton.style.display = currentQuestionIndex < questions.length - 1 ? 'inline-block' : 'none';
+            finishButton.style.display = currentQuestionIndex === questions.length - 1 ? 'inline-block' : 'none';
+        }
+
+        function saveResponse() {
+            const selectedOption = document.querySelector(`input[name="question_${questions[currentQuestionIndex].id}"]:checked`);
+            if (selectedOption) {
+                responses[questions[currentQuestionIndex].id] = selectedOption.value;
+
+                const formData = new FormData();
+                formData.append(`question_id`, questions[currentQuestionIndex].id);
+                formData.append(`question_${questions[currentQuestionIndex].id}`, selectedOption.value);
+
+                return fetch("{% url 'take_test' test.pk %}", {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                }).then(response => response.json());
+            }
+        }
+
+        function nextQuestion() {
+            saveResponse().then(data => {
+                if (data && data.status === 'saved') {
+                    currentQuestionIndex++;
+                    renderQuestion();
+                    highlightCurrentButton();
+                }
+            });
+        }
+
+        function previousQuestion() {
+            saveResponse().then(() => {
+                currentQuestionIndex--;
+                renderQuestion();
+                highlightCurrentButton();
+            });
+        }
+
+        function finishTest() {
+            saveResponse().then(data => {
+                if (data && data.status === 'saved') {
+                    window.location.href = "{% url 'test_result' test.pk %}";
+                }
+            });
+        }
+
+        document.getElementById('next-question').addEventListener('click', nextQuestion);
+        document.getElementById('previous-question').addEventListener('click', previousQuestion);
+        document.getElementById('finish-test').addEventListener('click', finishTest);
+
+        document.getElementById('previous-test').addEventListener('click', function() {
+            window.location.href = "{% url 'take_test' previous_test_id %}";
+        });
+
+        document.getElementById('next-test').addEventListener('click', function() {
+            window.location.href = "{% url 'take_test' next_test_id %}";
+        });
+
+        loadQuestions();
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0" style="color: white;">Профиль</h4>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="username" class="form-label"><strong>ИИН</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="username" value="{{ user.username }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="first_name" class="form-label"><strong>Имя</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="first_name" value="{{ user.first_name }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="last_name" class="form-label"><strong>Фамилия</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="last_name" value="{{ user.last_name }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="region" class="form-label"><strong>Регион</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="region" value="{{ user.region.name }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="school" class="form-label"><strong>Образовательное учреждение</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="school" value="{{ user.school }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label"><strong>Электронный адрес</strong></label>
+                            <input type="email" readonly class="form-control-plaintext" id="email" value="{{ user.email }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone_number" class="form-label"><strong>Контактный телефон</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="phone_number" value="{{ user.phone_number }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="balance" class="form-label"><strong>Баланс</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="balance" value="{{ user.balance }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="referral_link" class="form-label"><strong>Реферальная ссылка</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="referral_link" value="{{ user.referral_link }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="referral_bonus" class="form-label"><strong>Бонусы</strong></label>
+                            <input type="text" readonly class="form-control-plaintext" id="referral_bonus" value="{{ user.referral_bonus }}">
+                        </div>
+                        
+                        <div class="text-end">
+                            <a href="{% url 'change_password' %}" class="btn btn-primary me-2" data-toggle="modal" data-target="#changePasswordModal">Изменить пароль</a>
+                            <a href="{% url 'change_user_details' %}" class="btn btn-primary" data-toggle="modal" data-target="#changeUserDetailsModal">Изменить данные</a>
+                            <a href="{% url 'add_balance' %}" class="btn btn-primary" data-toggle="modal" data-target="#changeUserDetailsModal">Обновить баланс</a>
+                            <a href="{% url 'kaspi_info' %}" class="btn btn-primary" data-toggle="modal" data-target="#changeUserDetailsModal">Пополнить баланс</a>
+                            <!-- <a href="{% url 'generate_referral_link' %}" class="btn btn-primary" data-toggle="modal" data-target="#changeUserDetailsModal">Сгенерировать реферальную ссылку</a> -->
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" role="dialog" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="changePasswordModalLabel">Изменить пароль</h5>
+                <button type="button" class="btn-close btn-close-white" data-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'change_password' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="old_password" class="form-label">Старый пароль</label>
+                        <input type="password" class="form-control" id="old_password" name="old_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password1" class="form-label">Новый пароль</label>
+                        <input type="password" class="form-control" id="new_password1" name="new_password1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password2" class="form-label">Подтвердите новый пароль</label>
+                        <input type="password" class="form-control" id="new_password2" name="new_password2" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change User Details Modal -->
+<div class="modal fade" id="changeUserDetailsModal" tabindex="-1" role="dialog" aria-labelledby="changeUserDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="changeUserDetailsModalLabel">Изменить данные</h5>
+                <button type="button" class="btn-close btn-close-white" data-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'change_user_details' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Электронный адрес</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone_number" class="form-label">Контактный телефон</label>
+                        <input type="text" class="form-control" id="phone_number" name="phone_number" value="{{ user.phone_number }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="region" class="form-label">Регион</label>
+                        <select class="form-control" id="region" name="region" required>
+                            {% for region in regions %}
+                                <option value="{{ region.pk }}" {% if region.pk == user.region.pk %}selected{% endif %}>{{ region.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="school" class="form-label">Образовательное учреждение</label>
+                        <input type="text" class="form-control" id="school" name="school" value="{{ user.school }}" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
