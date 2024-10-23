@@ -32,7 +32,7 @@ DEBUG = 'True'
 
 # ALLOWED_HOSTS = ['synaqtest.kz', '185.22.65.38']
 # api.senimtest.kz www.api.senimtest.kz
-ALLOWED_HOSTS = ['77.243.80.158', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['api.senimtest.kz', 'www.api.senimtest.kz', '77.243.80.158', '127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -143,21 +143,21 @@ AUTH_USER_MODEL = 'accounts.User'
 # Cookie settings
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to the cookie
-SESSION_COOKIE_SECURE = False  # Use True if using HTTPS
+SESSION_COOKIE_SECURE = True  # Use True if using HTTPS
 SESSION_SAVE_EVERY_REQUEST = True  # Save the session to the database on every request
 
 # Custom cookie settings
 TEST_COOKIE_NAME = 'test_responses'
 TEST_COOKIE_AGE = 1209600  # 2 weeks in seconds
 TEST_COOKIE_HTTPONLY = True  # Prevent JavaScript access to the cookie
-TEST_COOKIE_SECURE = False  # Use True if using HTTPS
+TEST_COOKIE_SECURE = True  # Use True if using HTTPS
 
 # Security settings
-CSRF_COOKIE_SECURE = False  # Use True if using HTTPS
+CSRF_COOKIE_SECURE = True  # Use True if using HTTPS
 CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to the CSRF cookie
 CSRF_COOKIE_AGE = 31449600  # 1 year in seconds
 
-# CSRF_TRUSTED_ORIGINS = ['https://api.senimtest.kz', 'https://www.api.senimtest.kz']
+CSRF_TRUSTED_ORIGINS = ['https://api.senimtest.kz', 'https://www.api.senimtest.kz']
 
 ROOT_URLCONF = 'stud_test.urls'
 
