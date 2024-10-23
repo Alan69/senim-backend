@@ -39,7 +39,7 @@ class CurrentProductSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'title', 'sum', 'description', 'time', 'subject_limit']
+        fields = ['id', 'title', 'sum', 'description', 'time', 'subject_limit', 'product_type']
 
 class TestSerializer(serializers.ModelSerializer):
 

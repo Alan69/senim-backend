@@ -4,6 +4,11 @@ import uuid
 from django.utils import timezone
 
 class Product(models.Model):
+
+    class ProductType(models.TextChoices):
+        STUDENT = 'STUDENT', 'Student'
+        TEACHER = 'TEACHER', 'Teacher'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200, blank=True, verbose_name='Имя')
     description = models.TextField(null=True, blank=True, default="Test description")
@@ -11,6 +16,14 @@ class Product(models.Model):
     score = models.IntegerField(help_text="%", verbose_name="Баллы", default=0, null=True, blank=True)
     time = models.IntegerField(help_text="В минутах", verbose_name="Время теста", default=45, null=True, blank=True)
     subject_limit = models.IntegerField(help_text="Не обязательные предметы", verbose_name="Не обязательные предметы", default=1, null=True, blank=True)
+
+    product_type = models.CharField(
+        max_length=10,
+        choices=ProductType.choices,
+        default=ProductType.STUDENT,
+        verbose_name='Тип продукта'
+    )
+
     date_created = models.DateField(auto_now_add=True)
 
     def __str__(self):
