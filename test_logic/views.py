@@ -116,12 +116,12 @@ def product_tests_view(request):
         return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
     # Check if the user has enough balance to purchase the product
-    if user.balance < product.sum:
-        return Response({"detail": "Insufficient balance."}, status=status.HTTP_400_BAD_REQUEST)
+    # if user.balance < product.sum:
+    #     return Response({"detail": "Insufficient balance."}, status=status.HTTP_400_BAD_REQUEST)
 
     # Deduct the product sum from the user's balance
-    user.balance -= product.sum
-    user.save()
+    # user.balance -= product.sum
+    # user.save()
 
     # Get the tests based on the provided IDs
     tests = Test.objects.filter(product=product, id__in=tests_ids)
