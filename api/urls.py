@@ -1,4 +1,4 @@
-from accounts.views import UserDetailView, LogoutView, update_user_view, current_user_view, RegisterView, ChangePasswordView
+from accounts.views import UserDetailView, LogoutView, update_user_view, current_user_view, RegisterView, ChangePasswordView, RegionViewSet
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -22,6 +22,7 @@ router.register(r'products', ProductViewSet)
 router.register(r'subjects', TestViewSet)
 router.register(r'questions', QuestionViewSet)
 router.register(r'options', OptionViewSet)
+router.register(r'regions', RegionViewSet, basename='region')
 # router.register(r'results', ResultViewSet)
 # router.register(r'booksuggestions', BookSuggestionViewSet)
 

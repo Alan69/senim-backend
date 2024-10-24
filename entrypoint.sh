@@ -3,9 +3,9 @@
 set -e  # Exit immediately if a command exits with a non-zero status
 
 # Apply database migrations
-echo "Applying database migrations..."
-python manage.py makemigrations --noinput
-python manage.py migrate --noinput
+# echo "Applying database migrations..."
+# python manage.py makemigrations --noinput
+# python manage.py migrate --noinput
 
 # Collect static files (optional; uncomment if needed)
 # echo "Collecting static files..."
