@@ -42,10 +42,14 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'sum', 'description', 'time', 'subject_limit', 'product_type']
 
 class TestSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Test
-        fields = ['id', 'title', 'is_required']
+        fields = ['id', 'title', 'is_required', 'grade']
+
+class GradeGroupedTestSerializer(serializers.Serializer):
+    grade = serializers.IntegerField()
+    tests = TestSerializer(many=True)
+
 
 class CompletedOptionSerializer(serializers.ModelSerializer):
     class Meta:

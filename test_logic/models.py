@@ -40,6 +40,7 @@ class Test(models.Model):
     time = models.IntegerField(help_text="В минутах", verbose_name="Время теста", default=45, null=True, blank=True)
     score = models.IntegerField(help_text="%", verbose_name="Баллы", default=0, null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, verbose_name="Продукт")
+    grade = models.IntegerField(verbose_name="Класс", null=True, blank=True)
     date_created = models.DateField(auto_now_add=True)
     is_required = models.BooleanField(default=False)
 
