@@ -20,10 +20,10 @@ class TestAdmin(admin.ModelAdmin):
     list_filter = ('date_created',)
     inlines = [QuestionInline]
 
-class ResultAdmin(admin.ModelAdmin):
-    list_display = ('id', 'test', 'student', 'score', 'created', 'is_correct')
-    search_fields = ('student__username', 'test__title')
-    list_filter = ('created', 'is_correct')
+# class ResultAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'test', 'student', 'score', 'created', 'is_correct')
+#     search_fields = ('student__username', 'test__title')
+#     list_filter = ('created', 'is_correct')
 
 class BookSuggestionAdmin(admin.ModelAdmin):
     list_display = ('book_title', 'question')
