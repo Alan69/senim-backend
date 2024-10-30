@@ -33,7 +33,7 @@ class BookSuggestionAdmin(admin.ModelAdmin):
 admin.site.register(Product)
 admin.site.register(Test, TestAdmin)
 admin.site.register(Question, QuestionAdmin)
-admin.site.register(Result, ResultAdmin)
+# admin.site.register(Result, ResultAdmin)
 admin.site.register(BookSuggestion, BookSuggestionAdmin)
 admin.site.register(CompletedTest)
 admin.site.register(CompletedQuestion)
