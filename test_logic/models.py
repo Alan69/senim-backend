@@ -139,8 +139,8 @@ class CompletedTest(models.Model):
         return f"CompletedTest for {self.user.username} - {self.product.title}"
 
     class Meta:
-        verbose_name = 'Completed Test'
-        verbose_name_plural = 'Completed Tests'
+        verbose_name = 'Результаты'
+        verbose_name_plural = 'Результаты'
 
 
 class CompletedQuestion(models.Model):
@@ -152,3 +152,7 @@ class CompletedQuestion(models.Model):
 
     def __str__(self):
         return f"CompletedQuestion for {self.completed_test.user.username} - {self.question.text}"
+    
+    class Meta:
+        verbose_name = 'Результаты вопросов'
+        verbose_name_plural = 'Результаты вопросов'
