@@ -1,3 +1,4 @@
+from random import sample
 from rest_framework import serializers
 from .models import Product, Test, Question, Option, Result, BookSuggestion, CompletedTest, CompletedQuestion
 from accounts.models import User
@@ -25,8 +26,12 @@ class CurrentTestSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'questions']
 
     def get_questions(self, obj):
-        questions = Question.objects.filter(test=obj)[:15]
-        return CurrentQuestionSerializer(questions, many=True).data
+        number_of_questions = obj.number_of_questions if obj.number_of_questions else 15
+        # Fetch all questions related to the test
+        all_questions = list(Question.objects.filter(test=obj))
+        # Randomly select questions up to the specified number
+        selected_questions = sample(all_questions, min(number_of_questions, len(all_questions)))
+        return CurrentQuestionSerializer(selected_questions, many=True).data
 
 class CurrentProductSerializer(serializers.ModelSerializer):
     tests = CurrentTestSerializer(many=True)
