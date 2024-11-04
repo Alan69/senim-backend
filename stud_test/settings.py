@@ -31,8 +31,8 @@ SECRET_KEY = 'senimtestsecretkeyfordjangproj123@@@##!!!^^^asdsaddjango-insecure-
 DEBUG = 'True'
 
 # ALLOWED_HOSTS = ['synaqtest.kz', '185.22.65.38']
-# api.senimtest.kz www.api.senimtest.kz
-ALLOWED_HOSTS = ['api.senimtest.kz', 'www.api.senimtest.kz', '77.243.80.158', '127.0.0.1', 'localhost']
+# api.sapatest.com www.api.sapatest.com
+ALLOWED_HOSTS = ['api.sapatest.com', 'www.api.sapatest.com', '77.243.80.158', '127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -157,7 +157,7 @@ CSRF_COOKIE_SECURE = True  # Use True if using HTTPS
 CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to the CSRF cookie
 CSRF_COOKIE_AGE = 31449600  # 1 year in seconds
 
-CSRF_TRUSTED_ORIGINS = ['https://api.senimtest.kz', 'https://www.api.senimtest.kz']
+CSRF_TRUSTED_ORIGINS = ['https://api.sapatest.com', 'https://www.api.sapatest.com']
 
 ROOT_URLCONF = 'stud_test.urls'
 
