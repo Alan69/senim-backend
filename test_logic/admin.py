@@ -8,6 +8,7 @@ class OptionInline(admin.TabularInline):
 
 class QuestionAdmin(admin.ModelAdmin):
     list_display = ('id', 'text', 'test')
+    search_fields = ('text',)
     inlines = [OptionInline]
 
 class QuestionInline(admin.TabularInline):
