@@ -45,13 +45,24 @@ def request_page(request):
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .models import RequestTest
 from .serializers import RequestTestSerializer
 
 class RequestTestCreateView(APIView):
+    @swagger_auto_schema(
+        operation_description="Create a new RequestTest entry",
+        request_body=RequestTestSerializer,
+        responses={
+            201: openapi.Response("Created", RequestTestSerializer),
+            400: "Bad Request"
+        }
+    )
     def post(self, request):
         serializer = RequestTestSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
