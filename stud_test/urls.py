@@ -33,7 +33,7 @@ schema_view = get_schema_view(
         contact=openapi.Contact(email="contact@snippets.local"),
         license=openapi.License(name="BSD License"),
     ),
-    url='https://api.sapatest.kz/',
+    url='https://api.sapatest.com/',
     # url=f'{settings.APP_URL}/api/v3/',
     patterns=[path('api/', include('api.urls')), ],
     public=True,
