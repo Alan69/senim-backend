@@ -17,6 +17,8 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+from test_request.views import RequestTestCreateView
+
 router = DefaultRouter()
 router.register(r'products', ProductViewSet)
 router.register(r'subjects', TestViewSet)
@@ -51,4 +53,6 @@ urlpatterns = [
     path('completed-tests/', get_all_completed_tests, name='get-all-completed-tests'),
 
     path('update/balance/', AddBalanceView.as_view(), name='add_balance'),
+
+    path('request/test/', RequestTestCreateView.as_view(), name='request_test'),
 ]
