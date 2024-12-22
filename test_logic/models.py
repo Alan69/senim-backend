@@ -82,6 +82,7 @@ class Question(models.Model):
 class Option(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='options')
+    img = models.ImageField(upload_to='options', null=True, blank=True)
     text = models.CharField(max_length=200)
     is_correct = models.BooleanField(default=False)
 
