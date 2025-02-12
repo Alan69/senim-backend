@@ -8,7 +8,7 @@ from .forms import UserCreationForm, UserChangeForm
 class UserAdmin(BaseUserAdmin):
     model = User
 
-    list_display = ('username', 'balance', 'first_name', 'last_name', 'region', 'school', 'email', 'phone_number', 'is_student', 'is_teacher', 'is_principal', 'is_staff', 'is_active', 'is_superuser', 'password_reset_button')
+    list_display = ('username', 'balance', 'first_name', 'last_name', 'region', 'school', 'email', 'phone_number', 'is_student', 'is_teacher', 'is_principal', 'is_staff', 'is_active', 'is_superuser')
     list_filter = ('is_student', 'is_teacher', 'is_principal', 'is_staff', 'is_active', 'is_superuser', 'region')
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
