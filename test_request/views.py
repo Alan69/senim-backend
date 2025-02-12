@@ -35,9 +35,14 @@ def request_page(request):
                 first_name=name.split()[0],
                 last_name=name.split()[1],
             )
-            form.save()
-            # TODO render template
-            return HttpResponse("Запрос отправлен")
+            
+            # Save the form with the file
+            request_test = form.save(commit=False)
+            if 'excel_file' in request.FILES:
+                request_test.excel_file = request.FILES['excel_file']
+            request_test.save()
+            
+            return render(request, 'test_request/success.html')
     else:
         form = RequestTestForm()
     return render(request, 'test_request/request.html', {'form': form})

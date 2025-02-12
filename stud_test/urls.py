@@ -60,6 +60,7 @@ urlpatterns = [
     # path('tests/', include('test_logic.urls')),
     path('payments/', include('payments.urls')),
     path('api/', include('api.urls')),
+    path('request/', include('test_request.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
