@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запрос на тестирование</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h3 class="card-title">Test Statistics</h3>
+        </div>
+        <div class="card-body">
+            <!-- Filters -->
+            <form method="get" class="mb-4">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Region</label>
+                        <select name="region" class="form-select">
+                            <option value="">All Regions</option>
+                            {% for region in regions %}
+                            <option value="{{ region.id }}" {% if region.id|stringformat:"s" == selected_region %}selected{% endif %}>
+                                {{ region.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">School</label>
+                        <input type="text" name="school" class="form-control" value="{{ selected_school|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" name="start_date" class="form-control" value="{{ start_date|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">End Date</label>
+                        <input type="date" name="end_date" class="form-control" value="{{ end_date|default:'' }}">
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <button type="submit" name="export" value="excel" class="btn btn-success">
+                            Export to Excel
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Statistics Table -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Region</th>
+                            <th>School</th>
+                            <th>Completed Date</th>
+                            <th>Time Spent (min)</th>
+                            <th>Correct Answers</th>
+                            <th>Wrong Answers</th>
+                            <th>Total Questions</th>
+                            <th>Score (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in statistics %}
+                        <tr>
+                            <td>{{ stat.user.first_name }} {{ stat.user.last_name }}</td>
+                            <td>{{ stat.region }}</td>
+                            <td>{{ stat.school }}</td>
+                            <td>{{ stat.completed_date|date:"Y-m-d H:i" }}</td>
+                            <td>{{ stat.time_spent }}</td>
+                            <td>{{ stat.correct_answers }}</td>
+                            <td>{{ stat.wrong_answers }}</td>
+                            <td>{{ stat.total_questions }}</td>
+                            <td>{{ stat.score_percentage }}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center">No data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html> 

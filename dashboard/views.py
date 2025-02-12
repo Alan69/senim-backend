@@ -1,9 +1,14 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from test_logic.models import Test, Result, Option, Product
+from test_logic.models import Test, Result, Option, Product, CompletedTest, CompletedQuestion
 from django.http import HttpResponse
-from accounts.models import User
+from accounts.models import User, Region
 from openpyxl import load_workbook
+from django.db.models import Count, Q
+import xlsxwriter
+from io import BytesIO
+from django.db.models import Avg
+from datetime import datetime
 
 @login_required
 def test_list(request):
@@ -82,3 +87,107 @@ def add_students(request):
         return HttpResponse("Ученики добавлены")
     else:
         return render(request, 'dashboard/addstudent.html')
+
+@login_required
+def test_statistics(request):
+    # Get filter parameters
+    region_id = request.GET.get('region')
+    school = request.GET.get('school')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    # Base queryset
+    completed_tests = CompletedTest.objects.all()
+
+    # Apply filters
+    if region_id:
+        completed_tests = completed_tests.filter(user__region_id=region_id)
+    if school:
+        completed_tests = completed_tests.filter(user__school__icontains=school)
+    if start_date:
+        completed_tests = completed_tests.filter(completed_date__gte=start_date)
+    if end_date:
+        completed_tests = completed_tests.filter(completed_date__lte=end_date)
+
+    # Aggregate statistics
+    statistics = []
+    for completed_test in completed_tests:
+        correct_answers = CompletedQuestion.objects.filter(
+            completed_test=completed_test,
+            selected_option__is_correct=True
+        ).count()
+        
+        wrong_answers = CompletedQuestion.objects.filter(
+            completed_test=completed_test
+        ).filter(
+            Q(selected_option__is_correct=False) | Q(selected_option__is_correct__isnull=True)
+        ).count()
+
+        total_questions = correct_answers + wrong_answers
+        score_percentage = (correct_answers / total_questions * 100) if total_questions > 0 else 0
+
+        statistics.append({
+            'completed_test': completed_test,
+            'user': completed_test.user,
+            'region': completed_test.user.region,
+            'school': completed_test.user.school,
+            'completed_date': completed_test.completed_date,
+            'time_spent': completed_test.time_spent,
+            'correct_answers': correct_answers,
+            'wrong_answers': wrong_answers,
+            'total_questions': total_questions,
+            'score_percentage': round(score_percentage, 2)
+        })
+
+    # Get all regions for the filter dropdown
+    regions = Region.objects.all()
+
+    context = {
+        'statistics': statistics,
+        'regions': regions,
+        'selected_region': region_id,
+        'selected_school': school,
+        'start_date': start_date,
+        'end_date': end_date,
+    }
+
+    # Handle Excel export
+    if request.GET.get('export') == 'excel':
+        return export_to_excel(statistics)
+
+    return render(request, 'dashboard/test_statistics.html', context)
+
+def export_to_excel(statistics):
+    output = BytesIO()
+    workbook = xlsxwriter.Workbook(output)
+    worksheet = workbook.add_worksheet()
+
+    # Add headers
+    headers = [
+        'User', 'Region', 'School', 'Completed Date', 'Time Spent (min)',
+        'Correct Answers', 'Wrong Answers', 'Total Questions', 'Score (%)'
+    ]
+    for col, header in enumerate(headers):
+        worksheet.write(0, col, header)
+
+    # Add data
+    for row, stat in enumerate(statistics, 1):
+        worksheet.write(row, 0, f"{stat['user'].first_name} {stat['user'].last_name}")
+        worksheet.write(row, 1, str(stat['region']))
+        worksheet.write(row, 2, stat['school'])
+        worksheet.write(row, 3, stat['completed_date'].strftime('%Y-%m-%d %H:%M'))
+        worksheet.write(row, 4, stat['time_spent'])
+        worksheet.write(row, 5, stat['correct_answers'])
+        worksheet.write(row, 6, stat['wrong_answers'])
+        worksheet.write(row, 7, stat['total_questions'])
+        worksheet.write(row, 8, stat['score_percentage'])
+
+    workbook.close()
+    output.seek(0)
+
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=test_statistics.xlsx'
+    return response

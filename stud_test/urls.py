@@ -55,7 +55,7 @@ urlpatterns = [
         name='schema-json'),
 
     path('admin/', admin.site.urls),
-    # path('dashboard/', include('dashboard.urls')),
+    path('statistics/', include('dashboard.urls')),
     # path('accounts/', include('accounts.urls')),
     # path('tests/', include('test_logic.urls')),
     path('payments/', include('payments.urls')),
