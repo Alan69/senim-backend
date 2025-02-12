@@ -162,10 +162,10 @@ def export_to_excel(statistics):
     workbook = xlsxwriter.Workbook(output)
     worksheet = workbook.add_worksheet()
 
-    # Add headers
+    # Add headers in Russian
     headers = [
-        'User', 'Region', 'School', 'Completed Date', 'Time Spent (min)',
-        'Correct Answers', 'Wrong Answers', 'Total Questions', 'Score (%)'
+        'Пользователь', 'Регион', 'Школа', 'Дата завершения', 'Затраченное время (мин)',
+        'Правильные ответы', 'Неправильные ответы', 'Всего вопросов', 'Результат (%)'
     ]
     for col, header in enumerate(headers):
         worksheet.write(0, col, header)
@@ -189,5 +189,5 @@ def export_to_excel(statistics):
         output.read(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = 'attachment; filename=test_statistics.xlsx'
+    response['Content-Disposition'] = 'attachment; filename=статистика_тестов.xlsx'
     return response
