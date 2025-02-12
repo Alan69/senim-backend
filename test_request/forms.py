@@ -6,7 +6,7 @@ class RequestTestForm(ModelForm):
     class Meta:
         model=RequestTest
         fields=['region','school', 'student_amount', 
-        'name', 'iin', 'number', 'email']
+        'name', 'iin', 'number', 'email', 'excel_file']
 
         # fields=['region','school', 'student_amount', 'summa', 
         # 'name', 'iin', 'number', 'email', 'limit_in_month', 'limit_start', 'limit_end', 'kvitancia']
