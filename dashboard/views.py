@@ -4,7 +4,7 @@ from test_logic.models import Test, Result, Option, Product, CompletedTest, Comp
 from django.http import HttpResponse
 from accounts.models import User, Region
 from openpyxl import load_workbook
-from django.db.models import Count, Q, F, FloatField, ExpressionWrapper, Case, When, Value
+from django.db.models import Count, Q, F, FloatField, ExpressionWrapper, Case, When, Value, Cast
 import xlsxwriter
 from io import BytesIO
 from django.db.models import Avg
@@ -127,12 +127,12 @@ def test_statistics(request):
         wrong_answers=Count(
             'completed_questions',
             filter=Q(completed_questions__selected_option__is_correct=False) | 
-                  Q(completed_questions__selected_option__isnull=True)
+                Q(completed_questions__selected_option__isnull=True)
         ),
         score_percentage=Case(
-            When(total_questions=0, then=0),
+            When(total_questions=0, then=Value(0.0, output_field=FloatField())),
             default=ExpressionWrapper(
-                F('correct_answers') * 100.0 / F('total_questions'),
+                Cast(F('correct_answers'), FloatField()) * 100.0 / Cast(F('total_questions'), FloatField()),
                 output_field=FloatField()
             )
         )
