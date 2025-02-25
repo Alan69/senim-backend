@@ -143,6 +143,12 @@ class CompletedTest(models.Model):
         verbose_name = 'Результаты'
         verbose_name_plural = 'Результаты'
 
+    def calculate_time_spent(self):
+        if self.start_test_time and self.completed_date:
+            time_diff = self.completed_date - self.start_test_time
+            minutes_spent = time_diff.total_seconds() / 60
+            self.time_spent = round(minutes_spent)
+            self.save()
 
 class CompletedQuestion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

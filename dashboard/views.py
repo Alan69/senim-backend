@@ -124,11 +124,21 @@ def test_statistics(request):
             filter=Q(completed_questions__selected_option__is_correct=True)
         ),
         total_questions=Count('completed_questions'),
+        wrong_answers=Count(
+            'completed_questions',
+            filter=Q(completed_questions__selected_option__is_correct=False) | 
+                  Q(completed_questions__selected_option__isnull=True)
+        ),
+        score_percentage=ExpressionWrapper(
+            F('correct_answers') * 100.0 / F('total_questions'),
+            output_field=FloatField()
+        )
     ).values(
         'id', 'user__username', 'user__first_name', 'user__last_name',
         'user__school', 'user__region__name', 'completed_date', 
-        'time_spent', 'correct_answers', 'total_questions'
-    ).order_by('-completed_date')  # Sort by most recent first
+        'time_spent', 'correct_answers', 'wrong_answers', 'total_questions',
+        'score_percentage'
+    ).order_by('-completed_date')
 
     # Pagination
     page = request.GET.get('page', 1)
@@ -177,9 +187,9 @@ def export_to_excel(statistics):
         worksheet.write(row, 3, stat['completed_date'].strftime('%Y-%m-%d %H:%M'))
         worksheet.write(row, 4, stat['time_spent'])
         worksheet.write(row, 5, stat['correct_answers'])
-        worksheet.write(row, 6, stat['total_questions'] - stat['correct_answers'])
+        worksheet.write(row, 6, stat['wrong_answers'])
         worksheet.write(row, 7, stat['total_questions'])
-        worksheet.write(row, 8, (stat['correct_answers'] / stat['total_questions']) * 100)
+        worksheet.write(row, 8, stat['score_percentage'])
 
     workbook.close()
     output.seek(0)
