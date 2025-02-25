@@ -59,17 +59,17 @@ class Question(models.Model):
     task_type = models.IntegerField(null=True, blank=True)
     level = models.IntegerField(null=True, blank=True)
     status = models.IntegerField(null=True, blank=True)
-    category = models.CharField(max_length=200, null=True, blank=True)
-    subcategory = models.CharField(max_length=200, null=True, blank=True)
-    theme = models.CharField(max_length=200, null=True, blank=True)
-    subtheme = models.CharField(max_length=200, null=True, blank=True)
+    category = models.CharField(max_length=2000, null=True, blank=True)
+    subcategory = models.CharField(max_length=2000, null=True, blank=True)
+    theme = models.CharField(max_length=2000, null=True, blank=True)
+    subtheme = models.CharField(max_length=2000, null=True, blank=True)
     target = models.TextField(null=True, blank=True)
     source = models.TextField(null=True, blank=True)
     detail_id = models.IntegerField(null=True, blank=True)
     lng_id = models.IntegerField(null=True, blank=True)
     lng_title = models.CharField(max_length=200, null=True, blank=True)
     subject_id = models.IntegerField(null=True, blank=True)
-    subject_title = models.CharField(max_length=200, null=True, blank=True)
+    subject_title = models.CharField(max_length=2000, null=True, blank=True)
     class_number = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
@@ -83,7 +83,7 @@ class Option(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='options')
     img = models.ImageField(upload_to='options', null=True, blank=True)
-    text = models.CharField(max_length=200)
+    text = models.CharField(max_length=2000)
     is_correct = models.BooleanField(default=False)
 
     def __str__(self):
