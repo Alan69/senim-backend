@@ -4,7 +4,7 @@ from test_logic.models import Test, Result, Option, Product, CompletedTest, Comp
 from django.http import HttpResponse
 from accounts.models import User, Region
 from openpyxl import load_workbook
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F, FloatField, ExpressionWrapper
 import xlsxwriter
 from io import BytesIO
 from django.db.models import Avg

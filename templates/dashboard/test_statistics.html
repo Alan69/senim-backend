@@ -68,15 +68,15 @@
                     <tbody>
                         {% for stat in statistics %}
                         <tr>
-                            <td>{{ stat.user.first_name }} {{ stat.user.last_name }}</td>
-                            <td>{{ stat.region }}</td>
-                            <td>{{ stat.school }}</td>
+                            <td>{{ stat.user__first_name }} {{ stat.user__last_name }}</td>
+                            <td>{{ stat.user__region__name }}</td>
+                            <td>{{ stat.user__school }}</td>
                             <td>{{ stat.completed_date|date:"Y-m-d H:i" }}</td>
-                            <td>{{ stat.time_spent }}</td>
+                            <td>{{ stat.time_spent|default:"-" }}</td>
                             <td>{{ stat.correct_answers }}</td>
                             <td>{{ stat.wrong_answers }}</td>
                             <td>{{ stat.total_questions }}</td>
-                            <td>{{ stat.score_percentage }}%</td>
+                            <td>{{ stat.score_percentage|floatformat:1 }}%</td>
                         </tr>
                         {% empty %}
                         <tr>
