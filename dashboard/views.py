@@ -129,9 +129,12 @@ def test_statistics(request):
             filter=Q(completed_questions__selected_option__is_correct=False) | 
                   Q(completed_questions__selected_option__isnull=True)
         ),
-        score_percentage=ExpressionWrapper(
-            F('correct_answers') * 100.0 / F('total_questions'),
-            output_field=FloatField()
+        score_percentage=Case(
+            When(total_questions=0, then=0),
+            default=ExpressionWrapper(
+                F('correct_answers') * 100.0 / F('total_questions'),
+                output_field=FloatField()
+            )
         )
     ).values(
         'id', 'user__username', 'user__first_name', 'user__last_name',
