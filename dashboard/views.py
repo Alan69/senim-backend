@@ -9,6 +9,7 @@ import xlsxwriter
 from io import BytesIO
 from django.db.models import Avg
 from datetime import datetime
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 @login_required
 def test_list(request):
@@ -96,8 +97,15 @@ def test_statistics(request):
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
 
-    # Base queryset
-    completed_tests = CompletedTest.objects.all()
+    # Use select_related and prefetch_related to reduce queries
+    completed_tests = CompletedTest.objects.select_related(
+        'user', 
+        'user__region', 
+        'product'
+    ).prefetch_related(
+        'completed_questions',
+        'completed_questions__selected_option'
+    )
 
     # Apply filters
     if region_id:
@@ -109,42 +117,33 @@ def test_statistics(request):
     if end_date:
         completed_tests = completed_tests.filter(completed_date__lte=end_date)
 
-    # Aggregate statistics
-    statistics = []
-    for completed_test in completed_tests:
-        correct_answers = CompletedQuestion.objects.filter(
-            completed_test=completed_test,
-            selected_option__is_correct=True
-        ).count()
-        
-        wrong_answers = CompletedQuestion.objects.filter(
-            completed_test=completed_test
-        ).filter(
-            Q(selected_option__is_correct=False) | Q(selected_option__is_correct__isnull=True)
-        ).count()
+    # Use annotation to calculate statistics in the database
+    statistics = completed_tests.annotate(
+        correct_answers=Count(
+            'completed_questions',
+            filter=Q(completed_questions__selected_option__is_correct=True)
+        ),
+        total_questions=Count('completed_questions'),
+    ).values(
+        'id', 'user__username', 'user__first_name', 'user__last_name',
+        'user__school', 'user__region__name', 'completed_date', 
+        'time_spent', 'correct_answers', 'total_questions'
+    ).order_by('-completed_date')  # Sort by most recent first
 
-        total_questions = correct_answers + wrong_answers
-        score_percentage = (correct_answers / total_questions * 100) if total_questions > 0 else 0
-
-        statistics.append({
-            'completed_test': completed_test,
-            'user': completed_test.user,
-            'region': completed_test.user.region,
-            'school': completed_test.user.school,
-            'completed_date': completed_test.completed_date,
-            'time_spent': completed_test.time_spent,
-            'correct_answers': correct_answers,
-            'wrong_answers': wrong_answers,
-            'total_questions': total_questions,
-            'score_percentage': round(score_percentage, 2)
-        })
-
-    # Get all regions for the filter dropdown
-    regions = Region.objects.all()
+    # Pagination
+    page = request.GET.get('page', 1)
+    paginator = Paginator(statistics, 25)  # Show 25 entries per page
+    
+    try:
+        statistics_page = paginator.page(page)
+    except PageNotAnInteger:
+        statistics_page = paginator.page(1)
+    except EmptyPage:
+        statistics_page = paginator.page(paginator.num_pages)
 
     context = {
-        'statistics': statistics,
-        'regions': regions,
+        'statistics': statistics_page,
+        'regions': Region.objects.all(),
         'selected_region': region_id,
         'selected_school': school,
         'start_date': start_date,
@@ -172,15 +171,15 @@ def export_to_excel(statistics):
 
     # Add data
     for row, stat in enumerate(statistics, 1):
-        worksheet.write(row, 0, f"{stat['user'].first_name} {stat['user'].last_name}")
-        worksheet.write(row, 1, str(stat['region']))
-        worksheet.write(row, 2, stat['school'])
+        worksheet.write(row, 0, f"{stat['user__username']}")
+        worksheet.write(row, 1, str(stat['user__region__name']))
+        worksheet.write(row, 2, stat['user__school'])
         worksheet.write(row, 3, stat['completed_date'].strftime('%Y-%m-%d %H:%M'))
         worksheet.write(row, 4, stat['time_spent'])
         worksheet.write(row, 5, stat['correct_answers'])
-        worksheet.write(row, 6, stat['wrong_answers'])
+        worksheet.write(row, 6, stat['total_questions'] - stat['correct_answers'])
         worksheet.write(row, 7, stat['total_questions'])
-        worksheet.write(row, 8, stat['score_percentage'])
+        worksheet.write(row, 8, (stat['correct_answers'] / stat['total_questions']) * 100)
 
     workbook.close()
     output.seek(0)
