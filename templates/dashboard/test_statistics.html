@@ -68,15 +68,15 @@
                     <tbody>
                         {% for stat in statistics %}
                         <tr>
-                            <td>{{ stat.user__first_name }} {{ stat.user__last_name }}</td>
-                            <td>{{ stat.user__region__name }}</td>
-                            <td>{{ stat.user__school }}</td>
+                            <td>{{ stat.user.first_name }} {{ stat.user.last_name }}</td>
+                            <td>{{ stat.region }}</td>
+                            <td>{{ stat.school }}</td>
                             <td>{{ stat.completed_date|date:"Y-m-d H:i" }}</td>
-                            <td>{{ stat.time_spent|default:"-" }}</td>
+                            <td>{{ stat.time_spent }}</td>
                             <td>{{ stat.correct_answers }}</td>
                             <td>{{ stat.wrong_answers }}</td>
                             <td>{{ stat.total_questions }}</td>
-                            <td>{{ stat.score_percentage|floatformat:1 }}%</td>
+                            <td>{{ stat.score_percentage }}%</td>
                         </tr>
                         {% empty %}
                         <tr>
@@ -86,50 +86,6 @@
                     </tbody>
                 </table>
             </div>
-
-            <!-- Pagination -->
-            {% if statistics.paginator.num_pages > 1 %}
-            <nav aria-label="Page navigation" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    {% if statistics.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page=1{% if selected_region %}&region={{ selected_region }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">&laquo; Первая</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ statistics.previous_page_number }}{% if selected_region %}&region={{ selected_region }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Предыдущая</a>
-                        </li>
-                    {% endif %}
-
-                    {% for num in statistics.paginator.page_range %}
-                        {% if statistics.number == num %}
-                            <li class="page-item active">
-                                <span class="page-link">{{ num }}</span>
-                            </li>
-                        {% elif num > statistics.number|add:'-3' and num < statistics.number|add:'3' %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}{% if selected_region %}&region={{ selected_region }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">{{ num }}</a>
-                            </li>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if statistics.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ statistics.next_page_number }}{% if selected_region %}&region={{ selected_region }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Следующая</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ statistics.paginator.num_pages }}{% if selected_region %}&region={{ selected_region }}{% endif %}{% if selected_school %}&school={{ selected_school }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}">Последняя &raquo;</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-
-            <!-- Page info -->
-            <div class="text-center mt-3">
-                <p class="text-muted">
-                    Показано {{ statistics.start_index }}-{{ statistics.end_index }} из {{ statistics.paginator.count }} записей
-                </p>
-            </div>
-            {% endif %}
         </div>
     </div>
 </div>
