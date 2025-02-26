@@ -1,4 +1,4 @@
-from accounts.views import UserDetailView, LogoutView, update_user_view, current_user_view, RegisterView, ChangePasswordView, RegionViewSet
+from accounts.views import CustomTokenObtainPairView, UserDetailView, LogoutView, update_user_view, current_user_view, RegisterView, ChangePasswordView, RegionViewSet
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -36,7 +36,7 @@ urlpatterns = [
 
     path('change/password/', ChangePasswordView.as_view(), name='change-password'),
 
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     path('user/', UserDetailView.as_view(), name='user_detail'),
