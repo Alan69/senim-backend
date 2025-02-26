@@ -18,6 +18,9 @@ from rest_framework.permissions import IsAuthenticated
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import AccessToken
+from django.conf import settings
+import jwt
 
 # Customizing TokenObtainPairSerializer
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -81,10 +84,6 @@ def login(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@swagger_auto_schema(
-    operation_description="Returns authenticated user data",
-    responses={200: openapi.Response('success')}
-)
 def current_user_view(request):
     # Get the authenticated user from the request
     user = request.user
@@ -93,14 +92,36 @@ def current_user_view(request):
     print(f"current_user_view - User ID: {user.id}")
     print(f"current_user_view - Username: {user.username}")
     
-    # Verify this is the expected user
+    # Verify this is the expected user by manually decoding the token
     auth_header = request.META.get('HTTP_AUTHORIZATION', '')
     if auth_header.startswith('Bearer '):
-        # This is JWT auth
-        print(f"Using JWT authentication")
-    else:
-        # This might be token auth
-        print(f"Using different authentication method: {auth_header[:10]}...")
+        # Extract the token
+        token = auth_header.split(' ')[1]
+        print(f"Token received: {token[:10]}...")
+        
+        try:
+            # Decode the token manually
+            decoded_token = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=["HS256"],
+                options={"verify_signature": True}
+            )
+            
+            # Extract user_id from token
+            user_id = decoded_token.get('user_id')
+            print(f"Token user_id: {user_id}")
+            
+            # Get the user from the database directly using the token's user_id
+            from .models import User
+            token_user = User.objects.get(id=user_id)
+            print(f"Token user: {token_user.username} (ID: {token_user.id})")
+            
+            # Use this user instead of request.user
+            user = token_user
+            
+        except Exception as e:
+            print(f"Error decoding token: {str(e)}")
     
     # Serialize the user data
     user_data = UserSerializer(user).data
