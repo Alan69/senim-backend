@@ -28,7 +28,7 @@ SECRET_KEY = 'senimtestsecretkeyfordjangproj123@@@##!!!^^^asdsaddjango-insecure-
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = env('DEBUG')
 
-DEBUG = 'True'
+DEBUG = 'False'
 
 # ALLOWED_HOSTS = ['synaqtest.kz', '185.22.65.38']
 # api.sapatest.com www.api.sapatest.com
@@ -105,9 +105,8 @@ SIMPLE_JWT = {
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
 }
 
@@ -129,7 +128,7 @@ MIDDLEWARE = [
 # set false in prod
 CORS_ALLOW_ALL_ORIGINS = True
 SECURE_CROSS_ORIGIN_OPENER_POLICY=None
-SESSION_COOKIE_SECURE=False
+SESSION_COOKIE_SECURE = True
 
 # CORS_ALLOWED_ORIGINS = [
 #     "http://localhost:5173",
