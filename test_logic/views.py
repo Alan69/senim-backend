@@ -389,6 +389,7 @@ def complete_test_view(request):
     }
 )
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_completed_test_by_id(request, completed_test_id):
     try:
         completed_test = CompletedTest.objects.get(id=completed_test_id, user=request.user)
@@ -453,6 +454,7 @@ def get_completed_test_by_id(request, completed_test_id):
     }
 )
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_all_completed_tests(request):
     completed_tests = CompletedTest.objects.filter(user=request.user)
 
