@@ -8,18 +8,37 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-
+        
+        # Add custom claims
         token['username'] = user.username
         token['email'] = user.email
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
-
+        
         return token
 
     def validate(self, attrs):
         print(f"Attempting login with username: {attrs.get('username')}")  # Debug log
         data = super().validate(attrs)
         print(f"Authenticated user: {self.user.username}")  # Debug log
+        
+        # Add user data to response
+        data['user_data'] = {
+            'username': self.user.username,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'region': str(self.user.region) if self.user.region else None,
+            'school': self.user.school,
+            'phone_number': self.user.phone_number,
+            'balance': str(self.user.balance),
+            'referral_link': self.user.referral_link,
+            'referral_bonus': str(self.user.referral_bonus),
+            'test_is_started': self.user.test_is_started,
+            'is_student': self.user.is_student,
+            'is_teacher': self.user.is_teacher
+        }
+        
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):
