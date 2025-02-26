@@ -19,27 +19,36 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         print(f"Attempting login with username: {attrs.get('username')}")  # Debug log
-        data = super().validate(attrs)
-        print(f"Authenticated user: {self.user.username}")  # Debug log
-        
-        # Add user data to response
-        data['user_data'] = {
-            'username': self.user.username,
-            'email': self.user.email,
-            'first_name': self.user.first_name,
-            'last_name': self.user.last_name,
-            'region': str(self.user.region) if self.user.region else None,
-            'school': self.user.school,
-            'phone_number': self.user.phone_number,
-            'balance': str(self.user.balance),
-            'referral_link': self.user.referral_link,
-            'referral_bonus': str(self.user.referral_bonus),
-            'test_is_started': self.user.test_is_started,
-            'is_student': self.user.is_student,
-            'is_teacher': self.user.is_teacher
-        }
-        
-        return data
+        try:
+            data = super().validate(attrs)
+            print(f"Authenticated user: {self.user.username}")  # Debug log
+            print(f"User ID: {self.user.id}")  # Add this to see the user ID
+            
+            # Check if the username that was supplied matches the authenticated user
+            if attrs.get('username') != self.user.username:
+                print(f"WARNING: Username mismatch! Supplied: {attrs.get('username')}, Authenticated: {self.user.username}")
+            
+            # Add user data to response
+            data['user_data'] = {
+                'username': self.user.username,
+                'email': self.user.email,
+                'first_name': self.user.first_name,
+                'last_name': self.user.last_name,
+                'region': str(self.user.region) if self.user.region else None,
+                'school': self.user.school,
+                'phone_number': self.user.phone_number,
+                'balance': str(self.user.balance),
+                'referral_link': self.user.referral_link,
+                'referral_bonus': str(self.user.referral_bonus),
+                'test_is_started': self.user.test_is_started,
+                'is_student': self.user.is_student,
+                'is_teacher': self.user.is_teacher
+            }
+            
+            return data
+        except Exception as e:
+            print(f"Authentication error: {str(e)}")
+            raise
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
