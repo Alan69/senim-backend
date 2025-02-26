@@ -16,6 +16,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return token
 
+    def validate(self, attrs):
+        print(f"Attempting login with username: {attrs.get('username')}")  # Debug log
+        data = super().validate(attrs)
+        print(f"Authenticated user: {self.user.username}")  # Debug log
+        return data
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
