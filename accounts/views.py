@@ -84,10 +84,12 @@ def login(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@swagger_auto_schema(
+        operation_description="Возвращяет auth юзера",
+        responses={201: openapi.Response('success')}
+    )
 def current_user_view(request):
-    # Get the authenticated user from the request
     user = request.user
-    # Serialize the user data
     user_data = UserSerializer(user).data
     
     return Response({"user_data": user_data})
