@@ -3,6 +3,8 @@ from .models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
 from .models import Region
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -18,37 +20,44 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        print(f"Attempting login with username: {attrs.get('username')}")  # Debug log
-        try:
-            data = super().validate(attrs)
-            print(f"Authenticated user: {self.user.username}")  # Debug log
-            print(f"User ID: {self.user.id}")  # Add this to see the user ID
-            
-            # Check if the username that was supplied matches the authenticated user
-            if attrs.get('username') != self.user.username:
-                print(f"WARNING: Username mismatch! Supplied: {attrs.get('username')}, Authenticated: {self.user.username}")
-            
-            # Add user data to response
-            data['user_data'] = {
-                'username': self.user.username,
-                'email': self.user.email,
-                'first_name': self.user.first_name,
-                'last_name': self.user.last_name,
-                'region': str(self.user.region) if self.user.region else None,
-                'school': self.user.school,
-                'phone_number': self.user.phone_number,
-                'balance': str(self.user.balance),
-                'referral_link': self.user.referral_link,
-                'referral_bonus': str(self.user.referral_bonus),
-                'test_is_started': self.user.test_is_started,
-                'is_student': self.user.is_student,
-                'is_teacher': self.user.is_teacher
-            }
-            
-            return data
-        except Exception as e:
-            print(f"Authentication error: {str(e)}")
-            raise
+        # Custom authentication logic to ensure correct user is fetched
+        username = attrs.get('username')
+        password = attrs.get('password')
+        
+        user = authenticate(username=username, password=password)
+        
+        if user is None:
+            from django.contrib.auth.models import User
+            raise AuthenticationFailed('No active account found with the given credentials')
+        
+        self.user = user
+        # Continue with token generation and user data
+        token = super().validate(attrs)
+        print(f"Authenticated user: {self.user.username}")  # Debug log
+        print(f"User ID: {self.user.id}")  # Add this to see the user ID
+        
+        # Check if the username that was supplied matches the authenticated user
+        if attrs.get('username') != self.user.username:
+            print(f"WARNING: Username mismatch! Supplied: {attrs.get('username')}, Authenticated: {self.user.username}")
+        
+        # Add user data to response
+        token['user_data'] = {
+            'username': self.user.username,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'region': str(self.user.region) if self.user.region else None,
+            'school': self.user.school,
+            'phone_number': self.user.phone_number,
+            'balance': str(self.user.balance),
+            'referral_link': self.user.referral_link,
+            'referral_bonus': str(self.user.referral_bonus),
+            'test_is_started': self.user.test_is_started,
+            'is_student': self.user.is_student,
+            'is_teacher': self.user.is_teacher
+        }
+        
+        return token
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
