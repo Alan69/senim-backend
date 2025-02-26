@@ -82,11 +82,27 @@ def login(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @swagger_auto_schema(
-        operation_description="Возвращяет auth юзера",
-        responses={201: openapi.Response('success')}
-    )
+    operation_description="Returns authenticated user data",
+    responses={200: openapi.Response('success')}
+)
 def current_user_view(request):
+    # Get the authenticated user from the request
     user = request.user
+    
+    # Print debug information
+    print(f"current_user_view - User ID: {user.id}")
+    print(f"current_user_view - Username: {user.username}")
+    
+    # Verify this is the expected user
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if auth_header.startswith('Bearer '):
+        # This is JWT auth
+        print(f"Using JWT authentication")
+    else:
+        # This might be token auth
+        print(f"Using different authentication method: {auth_header[:10]}...")
+    
+    # Serialize the user data
     user_data = UserSerializer(user).data
     
     return Response({"user_data": user_data})
