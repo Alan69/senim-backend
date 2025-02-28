@@ -135,6 +135,21 @@ def test_statistics(request):
         )
     )
 
+    # Add debug logging to check the query and results
+    print("Query:", completed_tests.query)
+    for test in completed_tests:
+        print(f"Test ID: {test.id}")
+        print(f"Correct answers: {test.correct_answers}")
+        print(f"Wrong answers: {test.wrong_answers}")
+        print(f"Total questions: {test.total_questions}")
+        print(f"Score percentage: {test.score_percentage}")
+        # Let's also check the actual completed questions
+        questions = test.completed_questions.all()
+        print(f"Actual completed questions count: {questions.count()}")
+        for q in questions:
+            print(f"Question: {q.id}, Selected option: {q.selected_option}, Is correct: {q.selected_option.is_correct if q.selected_option else None}")
+        print("---")
+
     # Paginate results
     paginator = Paginator(completed_tests, 50)  # Show 50 items per page
     page_obj = paginator.get_page(page)
