@@ -101,6 +101,7 @@ class OptionViewSet(viewsets.ModelViewSet):
     }
 )
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def product_tests_view(request):
     user = request.user
     product_id = request.data.get('product_id')
@@ -252,6 +253,7 @@ def required_tests_by_product(request, product_id):
     }
 )
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def complete_test_view(request):
     user = request.user
     product_id = request.data.get('product_id')
