@@ -118,12 +118,13 @@ def test_statistics(request):
     # Annotate with correct and wrong answer counts
     completed_tests = completed_tests.annotate(
         correct_answers=Count(
-            'tests',
-            filter=Q(tests__is_correct=True)
+            'completed_questions',
+            filter=Q(completed_questions__selected_option__is_correct=True)
         ),
         wrong_answers=Count(
-            'tests',
-            filter=Q(tests__is_correct=False) | Q(tests__isnull=True)
+            'completed_questions',
+            filter=Q(completed_questions__selected_option__is_correct=False) | 
+                  Q(completed_questions__selected_option__isnull=True)
         )
     ).annotate(
         total_questions=F('correct_answers') + F('wrong_answers'),
