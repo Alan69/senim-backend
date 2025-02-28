@@ -99,11 +99,14 @@ def test_statistics(request):
     end_date = request.GET.get('end_date')
     page = request.GET.get('page', 1)
 
-    # Base queryset with select_related
+    # Base queryset with select_related and prefetch_related
     completed_tests = CompletedTest.objects.select_related(
         'user', 
         'user__region'
-    )
+    ).prefetch_related(
+        'completed_questions',
+        'completed_questions__selected_option'
+    ).order_by('-completed_date')  # Add ordering
 
     # Apply filters
     if region_id:
@@ -119,12 +122,14 @@ def test_statistics(request):
     completed_tests = completed_tests.annotate(
         correct_answers=Count(
             'completed_questions',
-            filter=Q(completed_questions__selected_option__is_correct=True)
+            filter=Q(completed_questions__selected_option__is_correct=True),
+            distinct=True
         ),
         wrong_answers=Count(
             'completed_questions',
             filter=Q(completed_questions__selected_option__is_correct=False) | 
-                  Q(completed_questions__selected_option__isnull=True)
+                  Q(completed_questions__selected_option__isnull=True),
+            distinct=True
         )
     ).annotate(
         total_questions=F('correct_answers') + F('wrong_answers'),
@@ -135,20 +140,19 @@ def test_statistics(request):
         )
     )
 
-    # Add debug logging to check the query and results
-    print("Query:", completed_tests.query)
-    for test in completed_tests:
-        print(f"Test ID: {test.id}")
-        print(f"Correct answers: {test.correct_answers}")
-        print(f"Wrong answers: {test.wrong_answers}")
-        print(f"Total questions: {test.total_questions}")
-        print(f"Score percentage: {test.score_percentage}")
-        # Let's also check the actual completed questions
-        questions = test.completed_questions.all()
-        print(f"Actual completed questions count: {questions.count()}")
+    # Add more debug logging
+    print("\nDEBUG: Checking completed questions")
+    for test in CompletedTest.objects.filter(user__region_id=region_id)[:1]:
+        print(f"\nTest ID: {test.id}")
+        print(f"User: {test.user.username}")
+        print(f"Product: {test.product.title}")
+        questions = test.completed_questions.all().select_related('selected_option')
+        print(f"Questions count: {questions.count()}")
         for q in questions:
-            print(f"Question: {q.id}, Selected option: {q.selected_option}, Is correct: {q.selected_option.is_correct if q.selected_option else None}")
-        print("---")
+            print(f"Question ID: {q.id}")
+            print(f"Selected option: {q.selected_option}")
+            if q.selected_option:
+                print(f"Is correct: {q.selected_option.is_correct}")
 
     # Paginate results
     paginator = Paginator(completed_tests, 50)  # Show 50 items per page
