@@ -99,12 +99,13 @@ def test_statistics(request):
     end_date = request.GET.get('end_date')
     page = request.GET.get('page', 1)
 
-    # Base queryset with select_related to avoid additional queries
+    # Base queryset with select_related and correct prefetch_related
     completed_tests = CompletedTest.objects.select_related(
-        'user', 'user__region'
+        'user', 
+        'user__region'
     ).prefetch_related(
-        'completedquestion_set', 
-        'completedquestion_set__selected_option'
+        'completed_questions',
+        'completed_questions__selected_option'
     )
 
     # Apply filters
