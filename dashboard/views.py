@@ -4,7 +4,9 @@ from test_logic.models import Test, Result, Option, Product, CompletedTest, Comp
 from django.http import HttpResponse
 from accounts.models import User, Region
 from openpyxl import load_workbook
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F, Value
+from django.db.models.functions import Coalesce
+from django.core.paginator import Paginator
 import xlsxwriter
 from io import BytesIO
 from django.db.models import Avg
@@ -95,9 +97,15 @@ def test_statistics(request):
     school = request.GET.get('school')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
+    page = request.GET.get('page', 1)
 
-    # Base queryset
-    completed_tests = CompletedTest.objects.all()
+    # Base queryset with select_related to avoid additional queries
+    completed_tests = CompletedTest.objects.select_related(
+        'user', 'user__region'
+    ).prefetch_related(
+        'completedquestion_set', 
+        'completedquestion_set__selected_option'
+    )
 
     # Apply filters
     if region_id:
@@ -109,23 +117,30 @@ def test_statistics(request):
     if end_date:
         completed_tests = completed_tests.filter(completed_date__lte=end_date)
 
-    # Aggregate statistics
+    # Annotate with correct and wrong answer counts
+    completed_tests = completed_tests.annotate(
+        correct_answers=Count(
+            'completedquestion',
+            filter=Q(completedquestion__selected_option__is_correct=True)
+        ),
+        wrong_answers=Count(
+            'completedquestion',
+            filter=Q(completedquestion__selected_option__is_correct=False) | 
+                  Q(completedquestion__selected_option__isnull=True)
+        ),
+        total_questions=F('correct_answers') + F('wrong_answers'),
+        score_percentage=Coalesce(
+            100.0 * F('correct_answers') / (F('correct_answers') + F('wrong_answers')),
+            Value(0.0)
+        )
+    )
+
+    # Paginate results
+    paginator = Paginator(completed_tests, 50)  # Show 50 items per page
+    page_obj = paginator.get_page(page)
+
     statistics = []
-    for completed_test in completed_tests:
-        correct_answers = CompletedQuestion.objects.filter(
-            completed_test=completed_test,
-            selected_option__is_correct=True
-        ).count()
-        
-        wrong_answers = CompletedQuestion.objects.filter(
-            completed_test=completed_test
-        ).filter(
-            Q(selected_option__is_correct=False) | Q(selected_option__is_correct__isnull=True)
-        ).count()
-
-        total_questions = correct_answers + wrong_answers
-        score_percentage = (correct_answers / total_questions * 100) if total_questions > 0 else 0
-
+    for completed_test in page_obj:
         statistics.append({
             'completed_test': completed_test,
             'user': completed_test.user,
@@ -133,10 +148,10 @@ def test_statistics(request):
             'school': completed_test.user.school,
             'completed_date': completed_test.completed_date,
             'time_spent': completed_test.time_spent,
-            'correct_answers': correct_answers,
-            'wrong_answers': wrong_answers,
-            'total_questions': total_questions,
-            'score_percentage': round(score_percentage, 2)
+            'correct_answers': completed_test.correct_answers,
+            'wrong_answers': completed_test.wrong_answers,
+            'total_questions': completed_test.total_questions,
+            'score_percentage': round(completed_test.score_percentage, 2)
         })
 
     # Get all regions for the filter dropdown
@@ -144,6 +159,7 @@ def test_statistics(request):
 
     context = {
         'statistics': statistics,
+        'page_obj': page_obj,
         'regions': regions,
         'selected_region': region_id,
         'selected_school': school,
