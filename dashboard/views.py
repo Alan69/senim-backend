@@ -4,7 +4,7 @@ from test_logic.models import Test, Result, Option, Product, CompletedTest, Comp
 from django.http import HttpResponse
 from accounts.models import User, Region
 from openpyxl import load_workbook
-from django.db.models import Count, Q, F, Value
+from django.db.models import Count, Q, F, Value, Case, When, Cast, FloatField
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 import xlsxwriter
@@ -127,11 +127,14 @@ def test_statistics(request):
             'completed_questions',
             filter=Q(completed_questions__selected_option__is_correct=False) | 
                   Q(completed_questions__selected_option__isnull=True)
-        ),
+        )
+    ).annotate(
         total_questions=F('correct_answers') + F('wrong_answers'),
-        score_percentage=Coalesce(
-            100.0 * F('correct_answers') / (F('correct_answers') + F('wrong_answers')),
-            Value(0.0)
+        # Add Case to handle division by zero
+        score_percentage=Case(
+            When(total_questions=0, then=Value(0.0)),
+            default=100.0 * F('correct_answers') / Cast(F('total_questions'), FloatField()),
+            output_field=FloatField(),
         )
     )
 
