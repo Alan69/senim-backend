@@ -58,7 +58,7 @@
                             <th>Регион</th>
                             <th>Школа</th>
                             <th>Дата завершения</th>
-                            <th>Затраченное время (мин)</th>
+                            {% comment %} <th>Затраченное время (мин)</th> {% endcomment %}
                             <th>Правильные ответы</th>
                             <th>Неправильные ответы</th>
                             <th>Всего вопросов</th>
@@ -72,7 +72,7 @@
                             <td>{{ stat.region }}</td>
                             <td>{{ stat.school }}</td>
                             <td>{{ stat.completed_date|date:"Y-m-d H:i" }}</td>
-                            <td>{{ stat.time_spent }}</td>
+                            {% comment %} <td>{{ stat.time_spent }}</td> {% endcomment %}
                             <td>{{ stat.correct_answers }}</td>
                             <td>{{ stat.wrong_answers }}</td>
                             <td>{{ stat.total_questions }}</td>

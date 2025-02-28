@@ -147,7 +147,6 @@ def test_statistics(request):
             'region': completed_test.user.region,
             'school': completed_test.user.school,
             'completed_date': completed_test.completed_date,
-            'time_spent': completed_test.time_spent,
             'correct_answers': completed_test.correct_answers,
             'wrong_answers': completed_test.wrong_answers,
             'total_questions': completed_test.total_questions,
@@ -180,7 +179,7 @@ def export_to_excel(statistics):
 
     # Add headers in Russian
     headers = [
-        'Пользователь', 'Регион', 'Школа', 'Дата завершения', 'Затраченное время (мин)',
+        'Пользователь', 'Регион', 'Школа', 'Дата завершения',
         'Правильные ответы', 'Неправильные ответы', 'Всего вопросов', 'Результат (%)'
     ]
     for col, header in enumerate(headers):
@@ -192,11 +191,10 @@ def export_to_excel(statistics):
         worksheet.write(row, 1, str(stat['region']))
         worksheet.write(row, 2, stat['school'])
         worksheet.write(row, 3, stat['completed_date'].strftime('%Y-%m-%d %H:%M'))
-        worksheet.write(row, 4, stat['time_spent'])
-        worksheet.write(row, 5, stat['correct_answers'])
-        worksheet.write(row, 6, stat['wrong_answers'])
-        worksheet.write(row, 7, stat['total_questions'])
-        worksheet.write(row, 8, stat['score_percentage'])
+        worksheet.write(row, 4, stat['correct_answers'])
+        worksheet.write(row, 5, stat['wrong_answers'])
+        worksheet.write(row, 6, stat['total_questions'])
+        worksheet.write(row, 7, stat['score_percentage'])
 
     workbook.close()
     output.seek(0)
