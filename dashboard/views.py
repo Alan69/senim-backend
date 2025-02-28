@@ -99,13 +99,10 @@ def test_statistics(request):
     end_date = request.GET.get('end_date')
     page = request.GET.get('page', 1)
 
-    # Base queryset with select_related and correct prefetch_related
+    # Base queryset with select_related
     completed_tests = CompletedTest.objects.select_related(
         'user', 
         'user__region'
-    ).prefetch_related(
-        'tests',
-        'tests__selected_option'
     )
 
     # Apply filters
@@ -122,12 +119,11 @@ def test_statistics(request):
     completed_tests = completed_tests.annotate(
         correct_answers=Count(
             'tests',
-            filter=Q(tests__selected_option__is_correct=True)
+            filter=Q(tests__is_correct=True)
         ),
         wrong_answers=Count(
             'tests',
-            filter=Q(tests__selected_option__is_correct=False) | 
-                  Q(tests__selected_option__isnull=True)
+            filter=Q(tests__is_correct=False) | Q(tests__isnull=True)
         )
     ).annotate(
         total_questions=F('correct_answers') + F('wrong_answers'),
