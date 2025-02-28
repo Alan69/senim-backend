@@ -104,8 +104,8 @@ def test_statistics(request):
         'user', 
         'user__region'
     ).prefetch_related(
-        'completed_questions',
-        'completed_questions__selected_option'
+        'tests',
+        'tests__selected_option'
     )
 
     # Apply filters
@@ -121,17 +121,16 @@ def test_statistics(request):
     # Annotate with correct and wrong answer counts
     completed_tests = completed_tests.annotate(
         correct_answers=Count(
-            'completed_questions',
-            filter=Q(completed_questions__selected_option__is_correct=True)
+            'tests',
+            filter=Q(tests__selected_option__is_correct=True)
         ),
         wrong_answers=Count(
-            'completed_questions',
-            filter=Q(completed_questions__selected_option__is_correct=False) | 
-                  Q(completed_questions__selected_option__isnull=True)
+            'tests',
+            filter=Q(tests__selected_option__is_correct=False) | 
+                  Q(tests__selected_option__isnull=True)
         )
     ).annotate(
         total_questions=F('correct_answers') + F('wrong_answers'),
-        # Add Case to handle division by zero
         score_percentage=Case(
             When(total_questions=0, then=Value(0.0)),
             default=100.0 * F('correct_answers') / Cast(F('total_questions'), FloatField()),
