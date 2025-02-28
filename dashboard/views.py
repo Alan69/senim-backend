@@ -4,8 +4,8 @@ from test_logic.models import Test, Result, Option, Product, CompletedTest, Comp
 from django.http import HttpResponse
 from accounts.models import User, Region
 from openpyxl import load_workbook
-from django.db.models import Count, Q, F, Value, Case, When, Cast, FloatField
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q, F, Value, Case, When, FloatField
+from django.db.models.functions import Cast, Coalesce
 from django.core.paginator import Paginator
 import xlsxwriter
 from io import BytesIO
