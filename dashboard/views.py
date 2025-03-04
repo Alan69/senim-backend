@@ -108,8 +108,8 @@ def test_statistics(request):
         'completed_questions__selected_option'
     ).order_by('-completed_date')  # Add ordering
 
-    # Apply filters
-    if region_id:
+    # Apply filters - Fix the region filter to handle empty strings
+    if region_id and region_id != '':
         completed_tests = completed_tests.filter(user__region_id=region_id)
     if school:
         completed_tests = completed_tests.filter(user__school__icontains=school)
