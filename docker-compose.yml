@@ -4,13 +4,14 @@ services:
   app:
     build:
       context: .
-    command: gunicorn --bind 0.0.0.0:8000 stud_test.wsgi:application
+    command: gunicorn --bind 0.0.0.0:8000 stud_test.wsgi:application --log-level debug --access-logfile - --error-logfile -
     ports:
       - "8000:8000"
     volumes:
       - .:/app
       - /app/staticfiles
       - ./media:/app/media
+      - ./logs:/app/logs
     expose:
       - 8000
     depends_on:
