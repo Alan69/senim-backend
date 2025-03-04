@@ -9,14 +9,14 @@ from django.db.models import Q
 class CurrentOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Option
-        fields = ['id', 'text']
+        fields = ['id', 'text', 'img']
 
 class CurrentQuestionSerializer(serializers.ModelSerializer):
     options = CurrentOptionSerializer(many=True)
 
     class Meta:
         model = Question
-        fields = ['id', 'text', 'options']
+        fields = ['id', 'text', 'options', 'img']
 
 class CurrentTestSerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField()
