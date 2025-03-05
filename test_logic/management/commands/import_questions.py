@@ -168,6 +168,27 @@ class Command(BaseCommand):
                             option.img = option_img_path
                             option.save()
                             self.stdout.write(self.style.SUCCESS(f'Saved option image: {option_img_path}'))
+
+                # After creating the question object
+                if item.get('image_path'):
+                    img_url = item.get('image_path')
+                    if not img_url.startswith('http'):
+                        img_url = urljoin(self.base_url, img_url)
+                    new_img_name, new_img_path = self.download_image(img_url)
+                    if new_img_name:
+                        question.img = f'public/uploaded/{new_img_name}'
+                        question.save()
+                        self.stdout.write(self.style.SUCCESS(f'Saved question image from image_path: {img_url}'))
+                # If image_path is null but group_image_path is not, use group_image_path
+                elif item.get('group_image_path'):
+                    img_url = item.get('group_image_path')
+                    if not img_url.startswith('http'):
+                        img_url = urljoin(self.base_url, img_url)
+                    new_img_name, new_img_path = self.download_image(img_url)
+                    if new_img_name:
+                        question.img = f'public/uploaded/{new_img_name}'
+                        question.save()
+                        self.stdout.write(self.style.SUCCESS(f'Saved question image from group_image_path: {img_url}'))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f'Error importing question: {e}'))
                 continue
