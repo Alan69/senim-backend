@@ -1,9 +1,10 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from test_logic.models import Test, Result, Option, Product, CompletedTest, CompletedQuestion
 from django.http import HttpResponse
-from accounts.models import User, Region
 from openpyxl import load_workbook
+from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 from django.db.models import Count, Q, F, Value, Case, When, FloatField
 from django.db.models.functions import Cast, Coalesce
 from django.core.paginator import Paginator
@@ -11,6 +12,10 @@ import xlsxwriter
 from io import BytesIO
 from django.db.models import Avg
 from datetime import datetime
+from django.contrib import messages
+from decimal import Decimal
+from accounts.models import User, Region
+from .forms import AddBalanceForm, AddStudentForm
 
 @login_required
 def test_list(request):
@@ -237,3 +242,90 @@ def export_to_excel(statistics):
     )
     response['Content-Disposition'] = 'attachment; filename=статистика_тестов.xlsx'
     return response
+
+@login_required
+def add_balance(request):
+    # Only staff, superusers, or principals can add balance
+    if not (request.user.is_staff or request.user.is_superuser or request.user.is_principal):
+        messages.error(request, "You don't have permission to access this page.")
+        return redirect('test_statistics')
+    
+    form = AddBalanceForm(request.POST or None)
+    
+    if request.method == 'POST' and form.is_valid():
+        filter_type = form.cleaned_data['filter_type']
+        amount = form.cleaned_data['amount']
+        users_updated = 0
+        
+        try:
+            if filter_type == 'all':
+                # Add balance to all users
+                users = User.objects.filter(is_active=True)
+                for user in users:
+                    user.balance += amount
+                    user.save()
+                    users_updated += 1
+                
+            elif filter_type == 'region':
+                # Add balance to users in a specific region
+                region = form.cleaned_data['region']
+                users = User.objects.filter(region=region, is_active=True)
+                for user in users:
+                    user.balance += amount
+                    user.save()
+                    users_updated += 1
+                
+            elif filter_type == 'school':
+                # Add balance to users in a specific school
+                school = form.cleaned_data['school']
+                users = User.objects.filter(school__iexact=school, is_active=True)
+                for user in users:
+                    user.balance += amount
+                    user.save()
+                    users_updated += 1
+                
+            elif filter_type == 'specific':
+                # Add balance to a specific user
+                username = form.cleaned_data['username']
+                user = User.objects.get(username=username)
+                user.balance += amount
+                user.save()
+                users_updated = 1
+            
+            messages.success(request, f"Successfully added {amount} to {users_updated} user(s).")
+            return redirect('add_balance')
+            
+        except Exception as e:
+            messages.error(request, f"An error occurred: {str(e)}")
+    
+    # Get some statistics for the template
+    total_users = User.objects.filter(is_active=True).count()
+    regions = Region.objects.all()
+    region_stats = []
+    
+    for region in regions:
+        region_stats.append({
+            'name': region.name,
+            'user_count': User.objects.filter(region=region, is_active=True).count()
+        })
+    
+    # Get unique schools and their user counts
+    schools = User.objects.filter(is_active=True).values('school').distinct()
+    school_stats = []
+    
+    for school_dict in schools:
+        school = school_dict.get('school')
+        if school:  # Skip None values
+            school_stats.append({
+                'name': school,
+                'user_count': User.objects.filter(school=school, is_active=True).count()
+            })
+    
+    context = {
+        'form': form,
+        'total_users': total_users,
+        'region_stats': region_stats,
+        'school_stats': school_stats
+    }
+    
+    return render(request, 'dashboard/add_balance.html', context)
