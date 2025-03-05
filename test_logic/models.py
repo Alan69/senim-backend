@@ -71,6 +71,7 @@ class Question(models.Model):
     subject_id = models.IntegerField(null=True, blank=True)
     subject_title = models.CharField(max_length=2000, null=True, blank=True)
     class_number = models.IntegerField(null=True, blank=True)
+    question_usage = models.BooleanField(default=True)
 
     def __str__(self):
         return self.text
