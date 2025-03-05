@@ -8,5 +8,5 @@ urlpatterns = [
     # path('test_history/<int:pk>/', history_detail, name='history_detail'),
     path('', test_statistics, name='test_statistics'),
     # path('add-students/', add_students, name='add_students'),
-    path('add-balance/', add_balance, name='add_balance'),
+    path('add-balance/', add_balance, name='add_balance2'),
 ]

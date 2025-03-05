@@ -293,7 +293,7 @@ def add_balance(request):
                 users_updated = 1
             
             messages.success(request, f"Успешно добавлено {amount} на баланс {users_updated} пользователя(ей).")
-            return redirect('add_balance')
+            return redirect('add_balance2')
             
         except Exception as e:
             messages.error(request, f"Произошла ошибка: {str(e)}")
