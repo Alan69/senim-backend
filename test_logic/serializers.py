@@ -17,13 +17,6 @@ class CurrentQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id', 'text', 'options', 'img']
-        
-    def __new__(cls, *args, **kwargs):
-        # If we're dealing with a queryset, filter it to only include questions where question_usage is True
-        if args and hasattr(args[0], '__iter__') and not isinstance(args[0], dict):
-            args = list(args)
-            args[0] = [item for item in args[0] if item.question_usage]
-        return super(CurrentQuestionSerializer, cls).__new__(cls)
 
 class CurrentTestSerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField()
