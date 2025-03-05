@@ -16,14 +16,77 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('json_file', type=str)
-        parser.add_argument('--base-url', type=str, default='http://127.0.0.1:8000', 
+        parser.add_argument('--base-url', type=str, default='https://api.sapatest.com', 
                            help='Base URL for resolving relative image paths')
+        parser.add_argument('--test-id', type=str, 
+                           help='UUID of the test to associate questions with')
+        parser.add_argument('--test-title', type=str, 
+                           help='Title of the test to associate questions with (will use first match)')
 
     def handle(self, *args, **kwargs):
         json_file = kwargs['json_file']
-        self.base_url = kwargs.get('base_url', 'http://127.0.0.1:8000')
+        self.base_url = kwargs.get('base_url', 'https://api.sapatest.com')
+        test_id = kwargs.get('test_id')
+        test_title = kwargs.get('test_title')
         
         self.stdout.write(f"Using base URL: {self.base_url}")
+
+        # Get the test to associate questions with
+        test = None
+        if test_id:
+            try:
+                test = Test.objects.get(id=test_id)
+                self.stdout.write(self.style.SUCCESS(f"Using test with ID: {test_id}"))
+            except Test.DoesNotExist:
+                self.stdout.write(self.style.ERROR(f'Test with ID {test_id} does not exist.'))
+                return
+        elif test_title:
+            try:
+                test = Test.objects.filter(title__icontains=test_title).first()
+                if test:
+                    self.stdout.write(self.style.SUCCESS(f"Using test with title: {test.title} (ID: {test.id})"))
+                else:
+                    self.stdout.write(self.style.ERROR(f'No test found with title containing: {test_title}'))
+                    return
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error finding test by title: {e}'))
+                return
+        else:
+            # List available tests and let the user choose
+            tests = Test.objects.all().order_by('title')
+            if not tests.exists():
+                self.stdout.write(self.style.ERROR('No tests found in the database. Please create a test first.'))
+                return
+                
+            self.stdout.write(self.style.SUCCESS('Available tests:'))
+            for i, t in enumerate(tests):
+                self.stdout.write(f"{i+1}. {t.title} (ID: {t.id})")
+                
+            try:
+                choice = input("Enter the number of the test or the full UUID (or 'q' to quit): ")
+                if choice.lower() == 'q':
+                    return
+                
+                # First try to interpret the choice as a UUID
+                try:
+                    test = Test.objects.get(id=choice)
+                    self.stdout.write(self.style.SUCCESS(f"Using test with ID: {test.id}"))
+                except (Test.DoesNotExist, ValueError):
+                    # If that fails, try to interpret it as a number
+                    try:
+                        choice_idx = int(choice) - 1
+                        if 0 <= choice_idx < len(tests):
+                            test = tests[choice_idx]
+                            self.stdout.write(self.style.SUCCESS(f"Using test: {test.title} (ID: {test.id})"))
+                        else:
+                            self.stdout.write(self.style.ERROR(f'Invalid choice: {choice}'))
+                            return
+                    except ValueError:
+                        self.stdout.write(self.style.ERROR(f'Invalid input: {choice}. Please enter a number or a valid UUID.'))
+                        return
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error selecting test: {e}'))
+                return
 
         try:
             with open(json_file, 'r', encoding='utf-8') as file:
@@ -33,13 +96,6 @@ class Command(BaseCommand):
             return
 
         for item in data:
-            test_id = "0fa87e21-3725-481d-9dc4-5a6c65e4904d"  # Replace with actual logic to fetch test ID
-            try:
-                test = Test.objects.get(id=test_id)
-            except Test.DoesNotExist:
-                self.stdout.write(self.style.ERROR(f'Test with ID {test_id} does not exist.'))
-                continue
-
             # Process question text and extract images
             question_text, question_img_path = self.process_html(item.get('question'))
 
@@ -272,8 +328,39 @@ class Command(BaseCommand):
         base_path = os.path.join(settings.MEDIA_ROOT, 'public', 'uploaded')
         os.makedirs(base_path, exist_ok=True)
 
+        # Check if this is a URL from our production server
+        if 'api.sapatest.com' in img_url and '/media/' in img_url:
+            # This is a production image, try to download it
+            self.stdout.write(f"Downloading production image from: {img_url}")
+            try:
+                # Add a timeout to avoid hanging
+                response = requests.get(img_url, stream=True, timeout=10)
+                response.raise_for_status()
+                
+                # Check if the response is actually an image
+                content_type = response.headers.get('Content-Type', '')
+                if not content_type.startswith('image/'):
+                    self.stdout.write(self.style.WARNING(f'URL does not return an image: {img_url}'))
+                    return None, None
+                
+                # Determine file extension from content type
+                extension = self.get_extension_from_content_type(content_type)
+                img_name = f"{uuid.uuid4().hex}{extension}"
+                img_path = os.path.join(base_path, img_name)
+
+                with open(img_path, 'wb') as img_file:
+                    for chunk in response.iter_content(1024):
+                        img_file.write(chunk)
+
+                self.stdout.write(self.style.SUCCESS(f'Successfully downloaded production image to: {img_path}'))
+                return img_name, img_path
+                
+            except requests.exceptions.RequestException as e:
+                self.stdout.write(self.style.ERROR(f'Error downloading production image: {e}'))
+                return None, None
+        
         # Check if this is a local URL from our own media
-        if self.base_url in img_url and '/media/' in img_url:
+        elif self.base_url in img_url and '/media/' in img_url:
             # This is a local image, try to copy it instead of downloading
             try:
                 # Extract the path relative to MEDIA_ROOT
@@ -302,9 +389,9 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f'Error copying local image: {e}'))
 
-        # If not a local image or copying failed, try to download it
+        # If not a local or production image, try to download it from the web
         try:
-            self.stdout.write(f"Downloading image from: {img_url}")
+            self.stdout.write(f"Downloading image from web: {img_url}")
             
             # Add a timeout to avoid hanging
             response = requests.get(img_url, stream=True, timeout=10)
