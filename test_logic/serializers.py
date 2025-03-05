@@ -17,6 +17,13 @@ class CurrentQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id', 'text', 'options', 'img']
+        
+    def __new__(cls, *args, **kwargs):
+        # If we're dealing with a queryset, filter it to only include questions where question_usage is True
+        if args and hasattr(args[0], '__iter__') and not isinstance(args[0], dict):
+            args = list(args)
+            args[0] = [item for item in args[0] if item.question_usage]
+        return super(CurrentQuestionSerializer, cls).__new__(cls)
 
 class CurrentTestSerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField()
@@ -27,8 +34,8 @@ class CurrentTestSerializer(serializers.ModelSerializer):
 
     def get_questions(self, obj):
         number_of_questions = obj.number_of_questions if obj.number_of_questions else 15
-        # Fetch all questions related to the test
-        all_questions = list(Question.objects.filter(test=obj))
+        # Fetch all questions related to the test where question_usage is True
+        all_questions = list(Question.objects.filter(test=obj, question_usage=True))
         # Randomly select questions up to the specified number
         selected_questions = sample(all_questions, min(number_of_questions, len(all_questions)))
         return CurrentQuestionSerializer(selected_questions, many=True).data
@@ -279,7 +286,7 @@ class CProductSerializer(serializers.ModelSerializer):
 # Serializer for the completed test
 class CCompletedTestSerializer(serializers.ModelSerializer):
     product = CProductSerializer()
-    user = serializers.StringRelatedField()  # Display user’s string representation
+    user = serializers.StringRelatedField()  # Display user's string representation
     start_test_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
     completed_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
 
