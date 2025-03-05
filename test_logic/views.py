@@ -187,8 +187,11 @@ def required_tests_by_product(request, product_id):
     except Product.DoesNotExist:
         return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    # Filter tests by product
-    required_tests = Test.objects.filter(product=product)
+    # Filter tests by product and only include grades 0, 4, or 9
+    required_tests = Test.objects.filter(
+        product=product,
+        grade__in=[0, 4]  # Only include tests with these specific grades
+    )
 
     # Serialize the tests
     serialized_tests = TestSerializer(required_tests, many=True).data
