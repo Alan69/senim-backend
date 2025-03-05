@@ -247,7 +247,7 @@ def export_to_excel(statistics):
 def add_balance(request):
     # Only staff, superusers, or principals can add balance
     if not (request.user.is_staff or request.user.is_superuser or request.user.is_principal):
-        messages.error(request, "You don't have permission to access this page.")
+        messages.error(request, "У вас нет прав для доступа к этой странице.")
         return redirect('test_statistics')
     
     form = AddBalanceForm(request.POST or None)
@@ -292,11 +292,11 @@ def add_balance(request):
                 user.save()
                 users_updated = 1
             
-            messages.success(request, f"Successfully added {amount} to {users_updated} user(s).")
+            messages.success(request, f"Успешно добавлено {amount} на баланс {users_updated} пользователя(ей).")
             return redirect('add_balance')
             
         except Exception as e:
-            messages.error(request, f"An error occurred: {str(e)}")
+            messages.error(request, f"Произошла ошибка: {str(e)}")
     
     # Get some statistics for the template
     total_users = User.objects.filter(is_active=True).count()

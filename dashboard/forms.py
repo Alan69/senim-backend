@@ -15,10 +15,10 @@ class AddStudentForm(ModelForm):
 
 class AddBalanceForm(forms.Form):
     FILTER_CHOICES = [
-        ('all', 'All Users'),
-        ('region', 'By Region'),
-        ('school', 'By School'),
-        ('specific', 'Specific User')
+        ('all', 'Все пользователи'),
+        ('region', 'По региону'),
+        ('school', 'По школе'),
+        ('specific', 'Конкретный пользователь')
     ]
     
     filter_type = forms.ChoiceField(
@@ -39,7 +39,7 @@ class AddBalanceForm(forms.Form):
     
     username = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'id': 'username-input', 'placeholder': 'Enter IIN'})
+        widget=forms.TextInput(attrs={'class': 'form-control', 'id': 'username-input', 'placeholder': 'Введите ИИН'})
     )
     
     amount = forms.DecimalField(
@@ -57,18 +57,18 @@ class AddBalanceForm(forms.Form):
         username = cleaned_data.get('username')
         
         if filter_type == 'region' and not region:
-            self.add_error('region', 'Region is required when filtering by region')
+            self.add_error('region', 'Необходимо выбрать регион при фильтрации по региону')
         
         if filter_type == 'school' and not school:
-            self.add_error('school', 'School name is required when filtering by school')
+            self.add_error('school', 'Необходимо указать название школы при фильтрации по школе')
         
         if filter_type == 'specific' and not username:
-            self.add_error('username', 'Username (IIN) is required when selecting a specific user')
+            self.add_error('username', 'Необходимо указать ИИН пользователя при выборе конкретного пользователя')
             
         if filter_type == 'specific' and username:
             try:
                 User.objects.get(username=username)
             except User.DoesNotExist:
-                self.add_error('username', 'User with this IIN does not exist')
+                self.add_error('username', 'Пользователь с таким ИИН не существует')
                 
         return cleaned_data

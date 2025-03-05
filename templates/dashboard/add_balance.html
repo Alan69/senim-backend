@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>Add Balance</title>
+    <title>Добавление баланса</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     
     <!-- Bootstrap CSS -->
@@ -15,7 +15,7 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'test_statistics' %}">Synaqtest</a>
+            {% comment %} <a class="navbar-brand" href="{% url 'test_statistics' %}">Synaqtest</a> {% endcomment %}
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -25,10 +25,10 @@
                         <a class="nav-link" href="{% url 'test_statistics' %}">Статистика</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="{% url 'add_balance' %}">Add Balance</a>
+                        <a class="nav-link active" href="{% url 'add_balance' %}">Добавить баланс</a>
                     </li>
                     <li class="nav-item">
-                        {% comment %} <a class="nav-link" href="{% url 'add_students' %}">Add Students</a> {% endcomment %}
+                        {% comment %} <a class="nav-link" href="{% url 'add_students' %}">Добавить студентов</a> {% endcomment %}
                     </li>
                 </ul>
             </div>
@@ -38,12 +38,12 @@
     <div class="container mt-4">
         <div class="row">
             <div class="col-md-12">
-                <h2 class="mb-4">Add Balance to Users</h2>
+                <h2 class="mb-4">Добавление баланса пользователям</h2>
                 
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{% url 'test_statistics' %}">Dashboard</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Add Balance</li>
+                        <li class="breadcrumb-item"><a href="{% url 'test_statistics' %}">Панель управления</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Добавление баланса</li>
                     </ol>
                 </nav>
                 
@@ -59,19 +59,19 @@
                 
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Add Balance</h5>
+                        <h5 class="card-title mb-0">Добавление баланса</h5>
                     </div>
                     <div class="card-body">
                         <form method="post">
                             {% csrf_token %}
                             
                             <div class="mb-3">
-                                <label for="{{ form.filter_type.id_for_label }}" class="form-label">Filter Type</label>
+                                <label for="{{ form.filter_type.id_for_label }}" class="form-label">Тип фильтра</label>
                                 {{ form.filter_type }}
                             </div>
                             
                             <div class="mb-3 filter-field" id="region-field" style="display: none;">
-                                <label for="{{ form.region.id_for_label }}" class="form-label">Region</label>
+                                <label for="{{ form.region.id_for_label }}" class="form-label">Регион</label>
                                 {{ form.region }}
                                 {% if form.region.errors %}
                                 <div class="text-danger">{{ form.region.errors }}</div>
@@ -79,7 +79,7 @@
                             </div>
                             
                             <div class="mb-3 filter-field" id="school-field" style="display: none;">
-                                <label for="{{ form.school.id_for_label }}" class="form-label">School</label>
+                                <label for="{{ form.school.id_for_label }}" class="form-label">Школа</label>
                                 {{ form.school }}
                                 {% if form.school.errors %}
                                 <div class="text-danger">{{ form.school.errors }}</div>
@@ -87,7 +87,7 @@
                             </div>
                             
                             <div class="mb-3 filter-field" id="username-field" style="display: none;">
-                                <label for="{{ form.username.id_for_label }}" class="form-label">User IIN</label>
+                                <label for="{{ form.username.id_for_label }}" class="form-label">ИИН пользователя</label>
                                 {{ form.username }}
                                 {% if form.username.errors %}
                                 <div class="text-danger">{{ form.username.errors }}</div>
@@ -95,15 +95,15 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="{{ form.amount.id_for_label }}" class="form-label">Amount to Add</label>
+                                <label for="{{ form.amount.id_for_label }}" class="form-label">Сумма для добавления</label>
                                 {{ form.amount }}
                                 {% if form.amount.errors %}
                                 <div class="text-danger">{{ form.amount.errors }}</div>
                                 {% endif %}
                             </div>
                             
-                            <button type="submit" class="btn btn-primary">Add Balance</button>
-                            <a href="{% url 'test_statistics' %}" class="btn btn-secondary">Back to Dashboard</a>
+                            <button type="submit" class="btn btn-primary">Добавить баланс</button>
+                            <a href="{% url 'test_statistics' %}" class="btn btn-secondary">Вернуться на панель управления</a>
                         </form>
                     </div>
                 </div>
@@ -112,10 +112,10 @@
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header">
-                                <h5 class="card-title mb-0">User Statistics</h5>
+                                <h5 class="card-title mb-0">Статистика пользователей</h5>
                             </div>
                             <div class="card-body">
-                                <p><strong>Total Users:</strong> {{ total_users }}</p>
+                                <p><strong>Всего пользователей:</strong> {{ total_users }}</p>
                             </div>
                         </div>
                     </div>
@@ -123,7 +123,7 @@
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header">
-                                <h5 class="card-title mb-0">Regions</h5>
+                                <h5 class="card-title mb-0">Регионы</h5>
                             </div>
                             <div class="card-body">
                                 <ul class="list-group">
@@ -141,7 +141,7 @@
                     <div class="col-md-4">
                         <div class="card">
                             <div class="card-header">
-                                <h5 class="card-title mb-0">Schools</h5>
+                                <h5 class="card-title mb-0">Школы</h5>
                             </div>
                             <div class="card-body" style="max-height: 300px; overflow-y: auto;">
                                 <ul class="list-group">
