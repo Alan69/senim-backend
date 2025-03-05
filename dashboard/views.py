@@ -154,7 +154,24 @@ def test_statistics(request):
             if q.selected_option:
                 print(f"Is correct: {q.selected_option.is_correct}")
 
-    # Paginate results
+    # Handle Excel export - do this before pagination to include all data
+    if request.GET.get('export') == 'excel':
+        all_statistics = []
+        for completed_test in completed_tests:
+            all_statistics.append({
+                'completed_test': completed_test,
+                'user': completed_test.user,
+                'region': completed_test.user.region,
+                'school': completed_test.user.school,
+                'completed_date': completed_test.completed_date,
+                'correct_answers': completed_test.correct_answers,
+                'wrong_answers': completed_test.wrong_answers,
+                'total_questions': completed_test.total_questions,
+                'score_percentage': round(completed_test.score_percentage, 2)
+            })
+        return export_to_excel(all_statistics)
+
+    # Paginate results for display
     paginator = Paginator(completed_tests, 50)  # Show 50 items per page
     page_obj = paginator.get_page(page)
 
@@ -184,10 +201,6 @@ def test_statistics(request):
         'start_date': start_date,
         'end_date': end_date,
     }
-
-    # Handle Excel export
-    if request.GET.get('export') == 'excel':
-        return export_to_excel(statistics)
 
     return render(request, 'dashboard/test_statistics.html', context)
 
