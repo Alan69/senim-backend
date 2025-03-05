@@ -96,77 +96,81 @@ class Command(BaseCommand):
             return
 
         for item in data:
-            # Process question text and extract images
-            question_text, question_img_path = self.process_html(item.get('question'))
+            try:
+                # Process question text and extract images
+                question_text, question_img_path = self.process_html(item.get('question'))
 
-            # Create the question object
-            question = Question(
-                test=test,
-                text=question_text,
-                task_type=item.get('task_type'),
-                level=item.get('level'),
-                status=item.get('status'),
-                category=item.get('category'),
-                subcategory=item.get('subcategory'),
-                theme=item.get('theme'),
-                subtheme=item.get('subtheme'),
-                target=item.get('target'),
-                source=item.get('source'),
-                detail_id=item.get('detail_id'),
-                lng_id=item.get('lng_id'),
-                lng_title=item.get('lng_title'),
-                subject_id=item.get('subject_id'),
-                subject_title=item.get('subject_title'),
-                class_number=item.get('class')
-            )
-            
-            # Save the question to get an ID
-            question.save()
-            
-            # If we have an image path, set the img field
-            if question_img_path:
-                # The img field is an ImageField, so we need to set it to the path relative to MEDIA_ROOT
-                question.img = question_img_path
+                # Create the question object with truncated values where needed
+                question = Question(
+                    test=test,
+                    text=question_text,
+                    task_type=item.get('task_type'),
+                    level=item.get('level'),
+                    status=item.get('status'),
+                    category=self.truncate_value(item.get('category'), 2000),
+                    subcategory=self.truncate_value(item.get('subcategory'), 2000),
+                    theme=self.truncate_value(item.get('theme'), 2000),
+                    subtheme=self.truncate_value(item.get('subtheme'), 2000),
+                    target=item.get('target'),
+                    source=item.get('source'),
+                    detail_id=item.get('detail_id'),
+                    lng_id=item.get('lng_id'),
+                    lng_title=self.truncate_value(item.get('lng_title'), 200),
+                    subject_id=item.get('subject_id'),
+                    subject_title=self.truncate_value(item.get('subject_title'), 2000),
+                    class_number=item.get('class')
+                )
+                
+                # Save the question to get an ID
                 question.save()
-                self.stdout.write(self.style.SUCCESS(f'Saved question image: {question_img_path}'))
+                
+                # If we have an image path, set the img field
+                if question_img_path:
+                    # The img field is an ImageField, so we need to set it to the path relative to MEDIA_ROOT
+                    question.img = question_img_path
+                    question.save()
+                    self.stdout.write(self.style.SUCCESS(f'Saved question image: {question_img_path}'))
 
-            # Process answer options
-            answers = json.loads(item.get('answers', "[]"))  # Ensure it's a list
-            options = {
-                'var1': item.get('var1'),
-                'var2': item.get('var2'),
-                'var3': item.get('var3'),
-                'var4': item.get('var4'),
-                'var5': item.get('var5'),
-                'var6': item.get('var6'),
-                'var7': item.get('var7'),
-                'var8': item.get('var8'),
-                'var9': item.get('var9'),
-                'var10': item.get('var10'),
-                'var11': item.get('var11'),
-                'var12': item.get('var12'),
-            }
+                # Process answer options
+                answers = json.loads(item.get('answers', "[]"))  # Ensure it's a list
+                options = {
+                    'var1': item.get('var1'),
+                    'var2': item.get('var2'),
+                    'var3': item.get('var3'),
+                    'var4': item.get('var4'),
+                    'var5': item.get('var5'),
+                    'var6': item.get('var6'),
+                    'var7': item.get('var7'),
+                    'var8': item.get('var8'),
+                    'var9': item.get('var9'),
+                    'var10': item.get('var10'),
+                    'var11': item.get('var11'),
+                    'var12': item.get('var12'),
+                }
 
-            for idx, (key, value) in enumerate(options.items()):
-                if value:
-                    option_text, option_img_path = self.process_html(value)
+                for idx, (key, value) in enumerate(options.items()):
+                    if value:
+                        option_text, option_img_path = self.process_html(value)
 
-                    # Create the option object
-                    option = Option(
-                        question=question,
-                        text=option_text,
-                        is_correct=(idx + 1) in answers  # Match option index with correct answer index
-                    )
-                    
-                    # Save the option to get an ID
-                    option.save()
-                    
-                    # If we have an image path, set the img field
-                    if option_img_path:
-                        # The img field is an ImageField, so we need to set it to the path relative to MEDIA_ROOT
-                        option.img = option_img_path
+                        # Create the option object with truncated text
+                        option = Option(
+                            question=question,
+                            text=self.truncate_value(option_text, 2000),
+                            is_correct=(idx + 1) in answers  # Match option index with correct answer index
+                        )
+                        
+                        # Save the option to get an ID
                         option.save()
-                        self.stdout.write(self.style.SUCCESS(f'Saved option image: {option_img_path}'))
+                        
+                        # If we have an image path, set the img field
+                        if option_img_path:
+                            # The img field is an ImageField, so we need to set it to the path relative to MEDIA_ROOT
+                            option.img = option_img_path
+                            option.save()
+                            self.stdout.write(self.style.SUCCESS(f'Saved option image: {option_img_path}'))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error importing question: {e}'))
+                continue
 
         self.stdout.write(self.style.SUCCESS('Successfully imported questions'))
 
@@ -452,3 +456,10 @@ class Command(BaseCommand):
             'image/webp': '.webp'
         }
         return content_type_to_extension.get(content_type, '.jpg')  # Default to .jpg
+
+    def truncate_value(self, value, max_length):
+        """Truncate a string value to the specified maximum length"""
+        if value and isinstance(value, str) and len(value) > max_length:
+            self.stdout.write(self.style.WARNING(f'Truncating value from {len(value)} to {max_length} characters'))
+            return value[:max_length]
+        return value
