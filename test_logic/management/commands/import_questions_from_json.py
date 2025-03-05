@@ -70,6 +70,9 @@ class Command(BaseCommand):
                         test_info = fields.get('test')
                         test_title = test_info.get('title') if isinstance(test_info, dict) else "Imported Test"
                         
+                        # Truncate test title if needed
+                        test_title = self.truncate_string(test_title, 200)
+                        
                         # Try to find an existing test with the same title in the target product
                         test = Test.objects.filter(product=target_product, title=test_title).first()
                         
@@ -95,7 +98,7 @@ class Command(BaseCommand):
                             questions_skipped += 1
                             continue
                     
-                    # Create question
+                    # Create question with truncated field values
                     question = Question(
                         id=question_id,
                         test=test,
@@ -104,30 +107,30 @@ class Command(BaseCommand):
                         task_type=fields.get('task_type'),
                         level=fields.get('level'),
                         status=fields.get('status'),
-                        category=fields.get('category'),
-                        subcategory=fields.get('subcategory'),
-                        theme=fields.get('theme'),
-                        subtheme=fields.get('subtheme'),
+                        category=self.truncate_string(fields.get('category'), 2000),
+                        subcategory=self.truncate_string(fields.get('subcategory'), 2000),
+                        theme=self.truncate_string(fields.get('theme'), 2000),
+                        subtheme=self.truncate_string(fields.get('subtheme'), 2000),
                         target=fields.get('target'),
                         source=fields.get('source'),
                         detail_id=fields.get('detail_id'),
                         lng_id=fields.get('lng_id'),
-                        lng_title=fields.get('lng_title'),
+                        lng_title=self.truncate_string(fields.get('lng_title'), 200),
                         subject_id=fields.get('subject_id'),
-                        subject_title=fields.get('subject_title'),
+                        subject_title=self.truncate_string(fields.get('subject_title'), 2000),
                         class_number=fields.get('class_number'),
                         question_usage=fields.get('question_usage', True)
                     )
                     question.save()
                     questions_imported += 1
                     
-                    # Create options
+                    # Create options with truncated text
                     options_data = fields.get('options', [])
                     for option_data in options_data:
                         option = Option(
                             id=option_data.get('id'),
                             question=question,
-                            text=option_data.get('text', ''),
+                            text=self.truncate_string(option_data.get('text', ''), 2000),
                             is_correct=option_data.get('is_correct', False),
                             img=option_data.get('img') if option_data.get('img') else None
                         )
@@ -153,4 +156,11 @@ class Command(BaseCommand):
         except json.JSONDecodeError:
             raise CommandError(f"Invalid JSON format in file: {json_file}")
         except Exception as e:
-            raise CommandError(f"Error importing questions: {str(e)}") 
+            raise CommandError(f"Error importing questions: {str(e)}")
+
+    def truncate_string(self, value, max_length):
+        """Truncate a string value to the specified maximum length"""
+        if value and isinstance(value, str) and len(value) > max_length:
+            self.stdout.write(self.style.WARNING(f'Truncating value from {len(value)} to {max_length} characters'))
+            return value[:max_length]
+        return value 
