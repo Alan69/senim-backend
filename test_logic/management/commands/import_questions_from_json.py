@@ -82,7 +82,7 @@ class Command(BaseCommand):
                                 test = Test.objects.create(
                                     product=target_product,
                                     title=test_title,
-                                    number_of_questions=0,  # Will be updated as questions are added
+                                    number_of_questions=40,  # Will be updated as questions are added
                                     time=fields.get('time', 45),
                                     score=0
                                 )
@@ -102,29 +102,7 @@ class Command(BaseCommand):
                         # Fix image URL if needed
                         img_url = fields.get('img')
                         if img_url:
-                            # Check if the URL contains encoded parts
-                            if '%3A' in img_url:
-                                self.stdout.write(self.style.WARNING(f"Found encoded URL: {img_url}"))
-                                # Extract just the filename from the URL
-                                import urllib.parse
-                                from os.path import basename
-                                
-                                # Try to get just the filename part
-                                try:
-                                    # First decode the URL
-                                    decoded_url = urllib.parse.unquote(img_url)
-                                    # Extract just the filename
-                                    filename = basename(decoded_url)
-                                    # Create a clean path
-                                    clean_path = f"questions/{filename}"
-                                    self.stdout.write(self.style.SUCCESS(f"Cleaned image path: {clean_path}"))
-                                    img_url = clean_path
-                                except Exception as e:
-                                    self.stdout.write(self.style.ERROR(f"Error cleaning image URL: {e}"))
-                                    # If we can't clean it, just use the relative path
-                                    if 'media/' in img_url:
-                                        img_url = img_url.split('media/')[1]
-                                        self.stdout.write(self.style.SUCCESS(f"Using relative path: {img_url}"))
+                            img_url = self.clean_image_url(img_url)
                         
                         # Truncate all string fields to be safe
                         # Create a dictionary of fields with truncated values
@@ -161,28 +139,8 @@ class Command(BaseCommand):
                         for option_data in options_data:
                             # Fix option image URL if needed
                             option_img_url = option_data.get('img')
-                            if option_img_url and '%3A' in option_img_url:
-                                self.stdout.write(self.style.WARNING(f"Found encoded option URL: {option_img_url}"))
-                                # Extract just the filename from the URL
-                                import urllib.parse
-                                from os.path import basename
-                                
-                                # Try to get just the filename part
-                                try:
-                                    # First decode the URL
-                                    decoded_url = urllib.parse.unquote(option_img_url)
-                                    # Extract just the filename
-                                    filename = basename(decoded_url)
-                                    # Create a clean path
-                                    clean_path = f"options/{filename}"
-                                    self.stdout.write(self.style.SUCCESS(f"Cleaned option image path: {clean_path}"))
-                                    option_img_url = clean_path
-                                except Exception as e:
-                                    self.stdout.write(self.style.ERROR(f"Error cleaning option image URL: {e}"))
-                                    # If we can't clean it, just use the relative path
-                                    if 'media/' in option_img_url:
-                                        option_img_url = option_img_url.split('media/')[1]
-                                        self.stdout.write(self.style.SUCCESS(f"Using relative option path: {option_img_url}"))
+                            if option_img_url:
+                                option_img_url = self.clean_image_url(option_img_url)
                             
                             option = Option(
                                 id=option_data.get('id'),
@@ -229,4 +187,26 @@ class Command(BaseCommand):
         if value and isinstance(value, str) and len(value) > max_length:
             self.stdout.write(self.style.WARNING(f'Truncating value from {len(value)} to {max_length} characters'))
             return value[:max_length]
-        return value 
+        return value
+
+    def clean_image_url(self, img_url):
+        """Convert full URLs to relative paths for Django ImageField"""
+        if not img_url:
+            return None
+        
+        # If it's already a relative path, return it as is
+        if not img_url.startswith('http'):
+            return img_url
+        
+        # Check if it's a URL from our domain
+        if 'api.sapatest.com/media/' in img_url:
+            # Extract the part after /media/
+            try:
+                relative_path = img_url.split('/media/')[1]
+                self.stdout.write(self.style.SUCCESS(f"Converted URL to relative path: {relative_path}"))
+                return relative_path
+            except IndexError:
+                self.stdout.write(self.style.WARNING(f"Could not extract relative path from URL: {img_url}"))
+                return img_url
+            
+        return img_url 
