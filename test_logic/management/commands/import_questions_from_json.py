@@ -99,13 +99,40 @@ class Command(BaseCommand):
                                 questions_skipped += 1
                                 continue
                         
+                        # Fix image URL if needed
+                        img_url = fields.get('img')
+                        if img_url:
+                            # Check if the URL contains encoded parts
+                            if '%3A' in img_url:
+                                self.stdout.write(self.style.WARNING(f"Found encoded URL: {img_url}"))
+                                # Extract just the filename from the URL
+                                import urllib.parse
+                                from os.path import basename
+                                
+                                # Try to get just the filename part
+                                try:
+                                    # First decode the URL
+                                    decoded_url = urllib.parse.unquote(img_url)
+                                    # Extract just the filename
+                                    filename = basename(decoded_url)
+                                    # Create a clean path
+                                    clean_path = f"questions/{filename}"
+                                    self.stdout.write(self.style.SUCCESS(f"Cleaned image path: {clean_path}"))
+                                    img_url = clean_path
+                                except Exception as e:
+                                    self.stdout.write(self.style.ERROR(f"Error cleaning image URL: {e}"))
+                                    # If we can't clean it, just use the relative path
+                                    if 'media/' in img_url:
+                                        img_url = img_url.split('media/')[1]
+                                        self.stdout.write(self.style.SUCCESS(f"Using relative path: {img_url}"))
+                        
                         # Truncate all string fields to be safe
                         # Create a dictionary of fields with truncated values
                         question_data = {
                             'id': question_id,
                             'test': test,
                             'text': fields.get('text', ''),
-                            'img': fields.get('img') if fields.get('img') else None,
+                            'img': img_url,  # Use the cleaned image URL
                             'task_type': fields.get('task_type'),
                             'level': fields.get('level'),
                             'status': fields.get('status'),
@@ -129,15 +156,40 @@ class Command(BaseCommand):
                         question.save()
                         questions_imported += 1
                         
-                        # Create options with truncated text
+                        # Create options with truncated text and fixed image URLs
                         options_data = fields.get('options', [])
                         for option_data in options_data:
+                            # Fix option image URL if needed
+                            option_img_url = option_data.get('img')
+                            if option_img_url and '%3A' in option_img_url:
+                                self.stdout.write(self.style.WARNING(f"Found encoded option URL: {option_img_url}"))
+                                # Extract just the filename from the URL
+                                import urllib.parse
+                                from os.path import basename
+                                
+                                # Try to get just the filename part
+                                try:
+                                    # First decode the URL
+                                    decoded_url = urllib.parse.unquote(option_img_url)
+                                    # Extract just the filename
+                                    filename = basename(decoded_url)
+                                    # Create a clean path
+                                    clean_path = f"options/{filename}"
+                                    self.stdout.write(self.style.SUCCESS(f"Cleaned option image path: {clean_path}"))
+                                    option_img_url = clean_path
+                                except Exception as e:
+                                    self.stdout.write(self.style.ERROR(f"Error cleaning option image URL: {e}"))
+                                    # If we can't clean it, just use the relative path
+                                    if 'media/' in option_img_url:
+                                        option_img_url = option_img_url.split('media/')[1]
+                                        self.stdout.write(self.style.SUCCESS(f"Using relative option path: {option_img_url}"))
+                            
                             option = Option(
                                 id=option_data.get('id'),
                                 question=question,
                                 text=self.truncate_string(option_data.get('text', ''), 2000),
                                 is_correct=option_data.get('is_correct', False),
-                                img=option_data.get('img') if option_data.get('img') else None
+                                img=option_img_url
                             )
                             option.save()
                             options_imported += 1
