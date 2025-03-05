@@ -58,18 +58,6 @@
                         <a href="{% url 'profile' %}" class="nav-item nav-link">Профиль</a>
                         <a href="{% url 'test_history' %}" class="nav-item nav-link">История</a>
                         <a href="#" class="nav-item nav-link">Библиотека</a>
-                        
-                        {% if user.is_staff or user.is_superuser or user.is_principal %}
-                        <div class="nav-item dropdown">
-                            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Администрирование</a>
-                            <div class="dropdown-menu fade-down m-0">
-                                <a href="{% url 'add_balance' %}" class="dropdown-item">Добавить баланс</a>
-                                <a href="{% url 'add_students' %}" class="dropdown-item">Добавить студентов</a>
-                                <a href="{% url 'test_statistics' %}" class="dropdown-item">Статистика тестов</a>
-                            </div>
-                        </div>
-                        {% endif %}
-                        
                         <div class="nav-item dropdown">
                             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Язык</a>
                             <div class="dropdown-menu fade-down m-0">
