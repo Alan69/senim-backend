@@ -34,7 +34,7 @@ DEBUG = True
 # api.sapatest.com www.api.sapatest.com
 ALLOWED_HOSTS = ['api.sapatest.com', 'www.api.sapatest.com', '77.243.80.158', '127.0.0.1', 'localhost']
 
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
 
 # Application definition
 
