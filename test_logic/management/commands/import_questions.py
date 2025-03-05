@@ -172,8 +172,14 @@ class Command(BaseCommand):
                 # After creating the question object
                 if item.get('image_path'):
                     img_url = item.get('image_path')
+                    # Fix the URL construction for image_path
                     if not img_url.startswith('http'):
-                        img_url = urljoin(self.base_url, img_url)
+                        # Remove any leading slash to avoid double slashes
+                        if img_url.startswith('/'):
+                            img_url = img_url[1:]
+                        img_url = f"{self.base_url}/{img_url}"
+                    
+                    self.stdout.write(f"Attempting to download image from image_path: {img_url}")
                     new_img_name, new_img_path = self.download_image(img_url)
                     if new_img_name:
                         question.img = f'public/uploaded/{new_img_name}'
@@ -182,8 +188,14 @@ class Command(BaseCommand):
                 # If image_path is null but group_image_path is not, use group_image_path
                 elif item.get('group_image_path'):
                     img_url = item.get('group_image_path')
+                    # Fix the URL construction for group_image_path
                     if not img_url.startswith('http'):
-                        img_url = urljoin(self.base_url, img_url)
+                        # Remove any leading slash to avoid double slashes
+                        if img_url.startswith('/'):
+                            img_url = img_url[1:]
+                        img_url = f"{self.base_url}/{img_url}"
+                    
+                    self.stdout.write(f"Attempting to download image from group_image_path: {img_url}")
                     new_img_name, new_img_path = self.download_image(img_url)
                     if new_img_name:
                         question.img = f'public/uploaded/{new_img_name}'
@@ -353,68 +365,7 @@ class Command(BaseCommand):
         base_path = os.path.join(settings.MEDIA_ROOT, 'public', 'uploaded')
         os.makedirs(base_path, exist_ok=True)
 
-        # Check if this is a URL from our production server
-        if 'api.sapatest.com' in img_url and '/media/' in img_url:
-            # This is a production image, try to download it
-            self.stdout.write(f"Downloading production image from: {img_url}")
-            try:
-                # Add a timeout to avoid hanging
-                response = requests.get(img_url, stream=True, timeout=10)
-                response.raise_for_status()
-                
-                # Check if the response is actually an image
-                content_type = response.headers.get('Content-Type', '')
-                if not content_type.startswith('image/'):
-                    self.stdout.write(self.style.WARNING(f'URL does not return an image: {img_url}'))
-                    return None, None
-                
-                # Determine file extension from content type
-                extension = self.get_extension_from_content_type(content_type)
-                img_name = f"{uuid.uuid4().hex}{extension}"
-                img_path = os.path.join(base_path, img_name)
-
-                with open(img_path, 'wb') as img_file:
-                    for chunk in response.iter_content(1024):
-                        img_file.write(chunk)
-
-                self.stdout.write(self.style.SUCCESS(f'Successfully downloaded production image to: {img_path}'))
-                return img_name, img_path
-                
-            except requests.exceptions.RequestException as e:
-                self.stdout.write(self.style.ERROR(f'Error downloading production image: {e}'))
-                return None, None
-        
-        # Check if this is a local URL from our own media
-        elif self.base_url in img_url and '/media/' in img_url:
-            # This is a local image, try to copy it instead of downloading
-            try:
-                # Extract the path relative to MEDIA_ROOT
-                local_path = img_url.split('/media/')[1]
-                source_path = os.path.join(settings.MEDIA_ROOT, local_path)
-                
-                self.stdout.write(f"Checking for local file at: {source_path}")
-                
-                if os.path.exists(source_path):
-                    # Copy the file to our destination
-                    import shutil
-                    
-                    # Get the file extension
-                    _, extension = os.path.splitext(source_path)
-                    if not extension:
-                        extension = '.jpg'  # Default extension
-                    
-                    img_name = f"{uuid.uuid4().hex}{extension}"
-                    dest_path = os.path.join(base_path, img_name)
-                    
-                    shutil.copy2(source_path, dest_path)
-                    self.stdout.write(self.style.SUCCESS(f'Copied local image from {source_path} to {dest_path}'))
-                    return img_name, dest_path
-                else:
-                    self.stdout.write(self.style.WARNING(f'Local image not found: {source_path}'))
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Error copying local image: {e}'))
-
-        # If not a local or production image, try to download it from the web
+        # Add error handling to try different URL variations if the first attempt fails
         try:
             self.stdout.write(f"Downloading image from web: {img_url}")
             
@@ -430,6 +381,50 @@ class Command(BaseCommand):
                 
         except requests.exceptions.RequestException as e:
             self.stdout.write(self.style.ERROR(f'Error downloading image: {e}'))
+            
+            # Try alternative URL formats if the original fails
+            alt_urls = []
+            
+            # Try with /media/ prefix
+            if '/public/' in img_url and not '/media/public/' in img_url:
+                alt_url = img_url.replace('/public/', '/media/public/')
+                alt_urls.append(alt_url)
+            
+            # Try without /media/ prefix
+            if '/media/public/' in img_url:
+                alt_url = img_url.replace('/media/public/', '/public/')
+                alt_urls.append(alt_url)
+                
+            # Try with different domain
+            parsed_url = urlparse(img_url)
+            path = parsed_url.path
+            alt_url = f"https://sapatest.com{path}"
+            alt_urls.append(alt_url)
+            
+            # Try each alternative URL
+            for alt_url in alt_urls:
+                self.stdout.write(f"Trying alternative URL: {alt_url}")
+                try:
+                    response = requests.get(alt_url, stream=True, timeout=10)
+                    response.raise_for_status()
+                    
+                    # Check if the response is actually an image
+                    content_type = response.headers.get('Content-Type', '')
+                    if content_type.startswith('image/'):
+                        self.stdout.write(self.style.SUCCESS(f'Successfully found image at alternative URL: {alt_url}'))
+                        
+                        # Determine file extension from content type
+                        extension = self.get_extension_from_content_type(content_type)
+                        img_name = f"{uuid.uuid4().hex}{extension}"
+                        img_path = os.path.join(base_path, img_name)
+
+                        with open(img_path, 'wb') as img_file:
+                            for chunk in response.iter_content(1024):
+                                img_file.write(chunk)
+
+                        return img_name, img_path
+                except requests.exceptions.RequestException:
+                    continue
             
             # If the URL is a local file path, try to access it directly
             if img_url.startswith('file://'):
