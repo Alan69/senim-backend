@@ -66,7 +66,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'password', 'password2', 'region', 'school', 'phone_number')
+        fields = ('username', 'first_name', 'last_name', 'password', 'password2', 'region', 'school')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -93,7 +93,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'first_name', 'last_name', 'region', 'school', 'phone_number', 'balance', 'referral_link', 'referral_bonus', 'test_is_started', 'is_student', 'is_teacher')
+        fields = ('username', 'first_name', 'last_name', 'region', 'school', 'balance', 'referral_link', 'referral_bonus', 'test_is_started', 'is_student', 'is_teacher')
 
     def get_region(self, obj):
         return obj.region.name if obj.region else None
