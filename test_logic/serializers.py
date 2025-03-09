@@ -4,6 +4,7 @@ from .models import Product, Test, Question, Option, Result, BookSuggestion, Com
 from accounts.models import User
 from accounts.serializers import UserSerializer
 from django.db.models import Q
+from django.db.models import Count
 
 # new
 class CurrentOptionSerializer(serializers.ModelSerializer):
@@ -165,11 +166,15 @@ class CompletedTestSerializer(serializers.ModelSerializer):
 
     # Method to calculate correct answers for the specific test
     def get_correct_answers_count(self, obj):
-        return obj.completed_questions.filter(selected_option__is_correct=True).count()
+        # Count questions where at least one selected option is correct
+        return obj.completed_questions.filter(selected_option__is_correct=True).distinct().count()
 
     # Method to calculate incorrect answers for the specific test
     def get_incorrect_answers_count(self, obj):
-        return obj.completed_questions.filter(selected_option__is_correct=False).count()
+        # Count questions where no selected option is correct or no option is selected
+        return obj.completed_questions.annotate(
+            correct_options=Count('selected_option', filter=Q(selected_option__is_correct=True))
+        ).filter(correct_options=0).count()
 
     # Method to calculate total questions for the specific test
     def get_total_question_count(self, obj):
@@ -262,12 +267,8 @@ class OptionSerializer(serializers.ModelSerializer):
 class QuestionSerializer(serializers.ModelSerializer):
     # All options for the question, assuming reverse relation is 'options'
     all_options = OptionSerializer(source='question.options', many=True)
-    selected_option = OptionSerializer()
+    selected_option = OptionSerializer(many=True)  # Change to many=True
 
-    class Meta:
-        model = CompletedQuestion  # Model is CompletedQuestion, not Question
-        fields = ['id', 'question_text', 'selected_option', 'all_options']
-    
     # Add the text field explicitly by accessing it from the 'question' relation
     question_text = serializers.CharField(source='question.text', read_only=True)
 
