@@ -164,7 +164,7 @@ class CompletedQuestion(models.Model):
     completed_test = models.ForeignKey(CompletedTest, on_delete=models.CASCADE, related_name='completed_questions')
     test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='completed_test_questions')
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='completed_test_questions',  null=True, blank=True)
-    selected_option = models.ForeignKey(Option, on_delete=models.SET_NULL, null=True, blank=True)
+    selected_option = models.ManyToManyField(Option, related_name='selected_option', blank=True)
 
     def __str__(self):
         return f"CompletedQuestion for {self.completed_test.user.username} - {self.question.text}"

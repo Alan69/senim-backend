@@ -17,6 +17,10 @@ from datetime import timezone
 from django.utils.timezone import now
 from django.utils import timezone
 import logging
+import uuid
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -262,17 +266,17 @@ def required_tests_by_product(request, product_id):
 @permission_classes([IsAuthenticated])
 def complete_test_view(request):
     user = request.user
-    logger.debug(f"User attempting to complete test: {user.username}, is_authenticated: {user.is_authenticated}")
     
-    # Log request headers to check authorization token
+    logger.debug(f"User attempting to complete test: {user.username}, is_authenticated: {user.is_authenticated}")
     logger.debug(f"Request headers: {request.headers}")
     
     product_id = request.data.get('product_id')
     tests_data = request.data.get('tests')
+    
     logger.debug(f"Received data - product_id: {product_id}, tests_data length: {len(tests_data) if tests_data else 0}")
 
     # Validate request data
-    if not product_id or not isinstance(tests_data, list): 
+    if not product_id or not isinstance(tests_data, list):
         logger.error(f"Invalid input data: product_id={product_id}, tests_data type={type(tests_data)}")
         return Response({"detail": "Invalid input data"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -282,20 +286,18 @@ def complete_test_view(request):
     except Product.DoesNotExist:
         return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
-
-    test_finish_test_time = user.finish_test_time = now()
+    # Calculate time spent
+    test_finish_test_time = now()
     test_start_time = user.test_start_time
-
-    time_spent = user.finish_test_time - user.test_start_time
-    time_spent_minutes = time_spent.total_seconds()
+    time_spent = (test_finish_test_time - test_start_time).total_seconds()
 
     # Create the CompletedTest instance
     completed_test = CompletedTest.objects.create(
         user=user,
         product=product,
         completed_date=test_finish_test_time,
-        start_test_time = test_start_time,
-        time_spent = time_spent_minutes
+        start_test_time=test_start_time,
+        time_spent=time_spent
     )
 
     # Process each test and its questions
@@ -315,41 +317,49 @@ def complete_test_view(request):
         # Process each question
         for question_data in questions_data:
             question_id = question_data.get('id')
-            selected_option_id = question_data.get('option_id')
+            selected_option_ids = question_data.get('option_id')
+            
+            # Convert single option_id to list if necessary
+            if selected_option_ids is None:
+                selected_option_ids = []
+            elif isinstance(selected_option_ids, (str, uuid.UUID)):
+                selected_option_ids = [selected_option_ids]
+            elif isinstance(selected_option_ids, list):
+                selected_option_ids = selected_option_ids
+            else:
+                selected_option_ids = []
 
             try:
                 question = Question.objects.get(id=question_id, test=test)
             except Question.DoesNotExist:
                 return Response({"detail": f"Question with id {question_id} not found in test {test_id}."}, status=status.HTTP_404_NOT_FOUND)
-            
-            option = None
 
-            if selected_option_id is not None:
-                try:
-                    option = Option.objects.get(id=selected_option_id, question=question)
-                    # Process the selected option (for example, mark if correct)
-                except Option.DoesNotExist:
-                    return Response({"detail": f"Option with id {selected_option_id} not found for question {question_id}."}, status=status.HTTP_404_NOT_FOUND)
-            
-            # Save the completed question with the selected option
-            CompletedQuestion.objects.create(
+            # Create the CompletedQuestion instance
+            completed_question = CompletedQuestion.objects.create(
                 completed_test=completed_test,
                 test=test,
-                question=question,
-                selected_option=option
+                question=question
             )
 
-    completed_test.save()
+            # Add selected options (if any)
+            for option_id in selected_option_ids:
+                try:
+                    option = Option.objects.get(id=option_id, question=question)
+                    completed_question.selected_option.add(option)
+                except Option.DoesNotExist:
+                    return Response({"detail": f"Option with id {option_id} not found for question {question_id}."}, status=status.HTTP_404_NOT_FOUND)
 
     # Reset user test state after completion
     user.test_is_started = False
     user.test_start_time = None
     user.finish_test_time = None
     user.save()
+    
+    print(f"user: {user.email} completed test {product.title}, user.test_is_started: {user.test_is_started}, user.test_start_time: {user.test_start_time}, user.finish_test_time: {user.finish_test_time}" )
 
     return Response({
         "completed_test_id": str(completed_test.id),
-        "time_spent_minutes": time_spent_minutes
+        "time_spent_minutes": time_spent / 60  # Convert seconds to minutes
     }, status=status.HTTP_201_CREATED)
 
 
