@@ -259,40 +259,41 @@ def add_balance(request):
         
         try:
             if filter_type == 'all':
-                # Add balance to all users
-                users = User.objects.filter(is_active=True)
+                # Add balance only to users with zero balance
+                users = User.objects.filter(is_active=True, balance=0)
                 for user in users:
                     user.balance += amount
                     user.save()
                     users_updated += 1
                 
             elif filter_type == 'region':
-                # Add balance to users in a specific region
+                # Add balance to users in a specific region with zero balance
                 region = form.cleaned_data['region']
-                users = User.objects.filter(region=region, is_active=True)
+                users = User.objects.filter(region=region, is_active=True, balance=0)
                 for user in users:
                     user.balance += amount
                     user.save()
                     users_updated += 1
                 
             elif filter_type == 'school':
-                # Add balance to users in a specific school
+                # Add balance to users in a specific school with zero balance
                 school = form.cleaned_data['school']
-                users = User.objects.filter(school__iexact=school, is_active=True)
+                users = User.objects.filter(school__iexact=school, is_active=True, balance=0)
                 for user in users:
                     user.balance += amount
                     user.save()
                     users_updated += 1
                 
             elif filter_type == 'specific':
-                # Add balance to a specific user
+                # Add balance to a specific user only if they have zero balance
                 username = form.cleaned_data['username']
                 user = User.objects.get(username=username)
-                user.balance += amount
-                user.save()
-                users_updated = 1
+                if user.balance == 0:
+                    user.balance += amount
+                    user.save()
+                    users_updated = 1
             
-            messages.success(request, f"Успешно добавлено {amount} на баланс {users_updated} пользователя(ей).")
+            messages.success(request, f"Успешно добавлено {amount} на баланс {users_updated} пользователя(ей) с нулевым балансом.")
             return redirect('add_balance2')
             
         except Exception as e:
@@ -300,13 +301,15 @@ def add_balance(request):
     
     # Get some statistics for the template
     total_users = User.objects.filter(is_active=True).count()
+    zero_balance_users = User.objects.filter(is_active=True, balance=0).count()
     regions = Region.objects.all()
     region_stats = []
     
     for region in regions:
         region_stats.append({
             'name': region.name,
-            'user_count': User.objects.filter(region=region, is_active=True).count()
+            'user_count': User.objects.filter(region=region, is_active=True).count(),
+            'zero_balance_count': User.objects.filter(region=region, is_active=True, balance=0).count()
         })
     
     # Get unique schools and their user counts
@@ -318,12 +321,14 @@ def add_balance(request):
         if school:  # Skip None values
             school_stats.append({
                 'name': school,
-                'user_count': User.objects.filter(school=school, is_active=True).count()
+                'user_count': User.objects.filter(school=school, is_active=True).count(),
+                'zero_balance_count': User.objects.filter(school=school, is_active=True, balance=0).count()
             })
     
     context = {
         'form': form,
         'total_users': total_users,
+        'zero_balance_users': zero_balance_users,
         'region_stats': region_stats,
         'school_stats': school_stats
     }
