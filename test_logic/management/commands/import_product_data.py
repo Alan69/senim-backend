@@ -21,6 +21,8 @@ class Command(BaseCommand):
         parser.add_argument('--download-missing', action='store_true', help='Download missing images from a base URL')
         parser.add_argument('--base-url', type=str, help='Base URL for downloading missing images', default='')
         parser.add_argument('--extract-html-images', action='store_true', help='Extract and process images from HTML content')
+        parser.add_argument('--clean-html', action='store_true', help='Clean HTML content by removing unwanted tags')
+        parser.add_argument('--preserve-tags', type=str, help='Comma-separated list of HTML tags to preserve when cleaning', default='p,strong,em,br,img,sup,sub,span')
 
     def handle(self, *args, **options):
         json_file_path = options['json_file']
@@ -28,12 +30,16 @@ class Command(BaseCommand):
         download_missing = options.get('download_missing', False)
         base_url = options.get('base_url', '')
         extract_html_images = options.get('extract_html_images', False)
+        clean_html = options.get('clean_html', False)
+        preserve_tags = options.get('preserve_tags', 'p,strong,em,br,img,sup,sub,span').split(',')
         
         self.stdout.write(f"Starting import from {json_file_path}")
         self.stdout.write(f"Media directory: {media_dir}")
         self.stdout.write(f"Download missing: {download_missing}")
         self.stdout.write(f"Base URL: {base_url}")
         self.stdout.write(f"Extract HTML images: {extract_html_images}")
+        self.stdout.write(f"Clean HTML: {clean_html}")
+        self.stdout.write(f"Preserve tags: {preserve_tags}")
         
         # Ensure media directory exists
         os.makedirs(media_dir, exist_ok=True)
@@ -83,6 +89,12 @@ class Command(BaseCommand):
             self.stdout.write(f"Found {len(questions_data)} questions to import")
             imported_questions = 0
             for question_data in questions_data:
+                # Clean HTML content if enabled
+                if clean_html:
+                    self.clean_html_content(question_data, 'text', preserve_tags)
+                    self.clean_html_content(question_data, 'text2', preserve_tags)
+                    self.clean_html_content(question_data, 'text3', preserve_tags)
+                
                 # Extract images from HTML content if enabled
                 if extract_html_images:
                     self.extract_images_from_html(question_data, 'text', media_dir, download_missing, base_url)
@@ -99,6 +111,10 @@ class Command(BaseCommand):
             self.stdout.write(f"Found {len(options_data)} options to import")
             imported_options = 0
             for option_data in options_data:
+                # Clean HTML content if enabled
+                if clean_html:
+                    self.clean_html_content(option_data, 'text', preserve_tags)
+                
                 # Extract images from HTML content if enabled
                 if extract_html_images:
                     self.extract_images_from_html(option_data, 'text', media_dir, download_missing, base_url)
@@ -232,7 +248,33 @@ class Command(BaseCommand):
             img_path = img_path[6:]
             
         return img_path
-    
+        
+    def get_clean_filename(self, img_path):
+        """Get a clean filename without timestamps for saving to media directory"""
+        if not img_path:
+            return None
+            
+        # Extract the base filename
+        base_name = os.path.basename(img_path)
+        
+        # Remove timestamp from filename (e.g., image.jpg1490335623040 -> image.jpg)
+        clean_name = re.sub(r'(\.(jpg|png|gif|jpeg))\d+', r'\1', base_name)
+        
+        # Extract UUID if present
+        uuid_pattern = r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
+        uuid_match = re.search(uuid_pattern, clean_name)
+        
+        if uuid_match:
+            uuid_str = uuid_match.group(1)
+            # Get the file extension
+            ext_match = re.search(r'\.([a-zA-Z0-9]+)', clean_name)
+            if ext_match:
+                ext = ext_match.group(0)  # Include the dot
+                # Create a clean filename with just the UUID and extension
+                return f"{uuid_str}{ext}"
+        
+        return clean_name
+
     def handle_image(self, model_instance, img_field_name, img_path, media_dir, download_missing, base_url):
         """Handle image for a model instance"""
         if not img_path or img_path == 'null' or img_path == '':
@@ -247,6 +289,10 @@ class Command(BaseCommand):
             return
             
         self.stdout.write(f"Cleaned image path: {clean_path}")
+        
+        # Get a clean filename for saving
+        clean_filename = self.get_clean_filename(img_path)
+        self.stdout.write(f"Clean filename for saving: {clean_filename}")
             
         # Get the image field
         img_field = getattr(model_instance, img_field_name)
@@ -256,8 +302,7 @@ class Command(BaseCommand):
             try:
                 response = requests.get(clean_path)
                 if response.status_code == 200:
-                    img_name = os.path.basename(clean_path)
-                    img_field.save(img_name, ContentFile(response.content), save=False)
+                    img_field.save(clean_filename, ContentFile(response.content), save=False)
                     self.stdout.write(self.style.SUCCESS(f'Downloaded image from {clean_path}'))
                 else:
                     self.stdout.write(self.style.WARNING(f'Failed to download image from {clean_path}: {response.status_code}'))
@@ -271,8 +316,7 @@ class Command(BaseCommand):
             # Check if the file exists
             if os.path.exists(local_path):
                 with open(local_path, 'rb') as img_file:
-                    img_name = os.path.basename(local_path)
-                    img_field.save(img_name, ContentFile(img_file.read()), save=False)
+                    img_field.save(clean_filename, ContentFile(img_file.read()), save=False)
                     self.stdout.write(self.style.SUCCESS(f'Loaded image from {local_path}'))
             elif download_missing and base_url:
                 # Try to download the missing image
@@ -296,8 +340,7 @@ class Command(BaseCommand):
                             f.write(response.content)
                             
                         # Save to the model
-                        img_name = os.path.basename(local_path)
-                        img_field.save(img_name, ContentFile(response.content), save=False)
+                        img_field.save(clean_filename, ContentFile(response.content), save=False)
                         self.stdout.write(self.style.SUCCESS(f'Downloaded missing image from {img_url}'))
                     else:
                         self.stdout.write(self.style.WARNING(f'Failed to download missing image from {img_url}: {response.status_code}'))
@@ -318,7 +361,7 @@ class Command(BaseCommand):
                                         self.stdout.write(f"Found matching file: {file_path}")
                                         
                                         with open(file_path, 'rb') as img_file:
-                                            img_field.save(file, ContentFile(img_file.read()), save=False)
+                                            img_field.save(clean_filename, ContentFile(img_file.read()), save=False)
                                             self.stdout.write(self.style.SUCCESS(f'Used existing file with matching UUID: {file_path}'))
                                             return
                 except Exception as e:
@@ -342,7 +385,7 @@ class Command(BaseCommand):
                                 self.stdout.write(f"Found matching file: {file_path}")
                                 
                                 with open(file_path, 'rb') as img_file:
-                                    img_field.save(file, ContentFile(img_file.read()), save=False)
+                                    img_field.save(clean_filename, ContentFile(img_file.read()), save=False)
                                     self.stdout.write(self.style.SUCCESS(f'Used existing file with matching UUID: {file_path}'))
                                     return
     
@@ -439,6 +482,34 @@ class Command(BaseCommand):
         option.save()
         return option
     
+    def clean_html_content(self, data, field_name, preserve_tags):
+        """Clean HTML content by removing unwanted tags"""
+        html_content = data.get(field_name)
+        if not html_content:
+            return
+            
+        try:
+            # Parse the HTML content
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Remove script and style tags
+            for script in soup(["script", "style"]):
+                script.decompose()
+                
+            # Remove all tags except those in preserve_tags
+            for tag in soup.find_all():
+                if tag.name not in preserve_tags:
+                    tag.unwrap()
+            
+            # Convert the soup back to a string
+            clean_content = str(soup)
+            
+            # Update the data
+            data[field_name] = clean_content
+            self.stdout.write(self.style.SUCCESS(f'Cleaned HTML content in {field_name}'))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'Error cleaning HTML content: {e}'))
+            
     def extract_images_from_html(self, data, field_name, media_dir, download_missing, base_url):
         """Extract images from HTML content and process them"""
         html_content = data.get(field_name)
@@ -458,6 +529,10 @@ class Command(BaseCommand):
                     clean_path = self.clean_image_path(src)
                     if not clean_path:
                         continue
+                        
+                    # Get a clean filename for saving
+                    clean_filename = self.get_clean_filename(src)
+                    self.stdout.write(f"Clean filename for HTML image: {clean_filename}")
                         
                     # Process the image
                     local_path = os.path.join(media_dir, clean_path)
@@ -483,9 +558,20 @@ class Command(BaseCommand):
                                 with open(local_path, 'wb') as f:
                                     f.write(response.content)
                                 self.stdout.write(self.style.SUCCESS(f'Downloaded HTML image to {local_path}'))
+                                
+                                # Update the src attribute in the HTML
+                                img['src'] = f'media/{clean_path}'
                             else:
                                 self.stdout.write(self.style.WARNING(f'Failed to download HTML image from {img_url}: {response.status_code}'))
                         except Exception as e:
                             self.stdout.write(self.style.WARNING(f'Error downloading HTML image {img_url}: {e}'))
+                    elif os.path.exists(local_path):
+                        # Update the src attribute in the HTML
+                        img['src'] = f'media/{clean_path}'
+                        self.stdout.write(self.style.SUCCESS(f'Updated HTML image path to {img["src"]}'))
+                    
+            # Update the HTML content in the data
+            data[field_name] = str(soup)
+            self.stdout.write(self.style.SUCCESS(f'Updated HTML content with clean image paths'))
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'Error extracting images from HTML: {e}')) 
