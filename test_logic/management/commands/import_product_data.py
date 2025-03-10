@@ -2,6 +2,7 @@ import json
 import os
 import uuid
 import requests
+import re
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.core.files.base import ContentFile
@@ -16,13 +17,21 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('json_file', type=str, help='Path to the JSON file')
         parser.add_argument('--media-dir', type=str, help='Directory to save media files', default='media')
+        parser.add_argument('--download-missing', action='store_true', help='Download missing images from a base URL')
+        parser.add_argument('--base-url', type=str, help='Base URL for downloading missing images', default='')
 
     def handle(self, *args, **options):
         json_file_path = options['json_file']
         media_dir = options['media_dir']
+        download_missing = options.get('download_missing', False)
+        base_url = options.get('base_url', '')
         
         # Ensure media directory exists
         os.makedirs(media_dir, exist_ok=True)
+        
+        # Ensure images directory exists
+        images_dir = os.path.join(media_dir, 'images')
+        os.makedirs(images_dir, exist_ok=True)
         
         try:
             with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -45,13 +54,13 @@ class Command(BaseCommand):
             # Process questions data
             questions_data = data.get('questions', [])
             for question_data in questions_data:
-                self.import_question(question_data, media_dir)
+                self.import_question(question_data, media_dir, download_missing, base_url)
             self.stdout.write(self.style.SUCCESS(f'{len(questions_data)} questions imported successfully'))
             
             # Process options data
             options_data = data.get('options', [])
             for option_data in options_data:
-                self.import_option(option_data, media_dir)
+                self.import_option(option_data, media_dir, download_missing, base_url)
             self.stdout.write(self.style.SUCCESS(f'{len(options_data)} options imported successfully'))
             
         except Exception as e:
@@ -141,7 +150,78 @@ class Command(BaseCommand):
         test.save()
         return test
     
-    def import_question(self, question_data, media_dir):
+    def clean_image_path(self, img_path):
+        """Clean image path by removing timestamps and other unwanted parts"""
+        if not img_path or img_path == 'null' or img_path == '':
+            return None
+            
+        # Remove timestamp from image path (e.g., .jpg1490335623040 -> .jpg)
+        img_path = re.sub(r'(\.(jpg|png|gif|jpeg))\d+$', r'\1', img_path)
+        
+        # Remove 'media/' prefix if present
+        if img_path.startswith('media/'):
+            img_path = img_path[6:]
+            
+        return img_path
+    
+    def handle_image(self, model_instance, img_field_name, img_path, media_dir, download_missing, base_url):
+        """Handle image for a model instance"""
+        if not img_path or img_path == 'null' or img_path == '':
+            return
+            
+        # Clean the image path
+        clean_path = self.clean_image_path(img_path)
+        if not clean_path:
+            return
+            
+        # Get the image field
+        img_field = getattr(model_instance, img_field_name)
+        
+        # Handle remote images
+        if clean_path.startswith('http'):
+            try:
+                response = requests.get(clean_path)
+                if response.status_code == 200:
+                    img_name = os.path.basename(clean_path)
+                    img_field.save(img_name, ContentFile(response.content), save=False)
+                    self.stdout.write(self.style.SUCCESS(f'Downloaded image from {clean_path}'))
+                else:
+                    self.stdout.write(self.style.WARNING(f'Failed to download image from {clean_path}: {response.status_code}'))
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f'Error downloading image {clean_path}: {e}'))
+        else:
+            # Handle local images
+            local_path = os.path.join(media_dir, clean_path)
+            
+            # Check if the file exists
+            if os.path.exists(local_path):
+                with open(local_path, 'rb') as img_file:
+                    img_name = os.path.basename(local_path)
+                    img_field.save(img_name, ContentFile(img_file.read()), save=False)
+                    self.stdout.write(self.style.SUCCESS(f'Loaded image from {local_path}'))
+            elif download_missing and base_url:
+                # Try to download the missing image
+                try:
+                    img_url = f"{base_url.rstrip('/')}/{clean_path}"
+                    response = requests.get(img_url)
+                    if response.status_code == 200:
+                        # Save the downloaded image to the media directory
+                        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                        with open(local_path, 'wb') as f:
+                            f.write(response.content)
+                            
+                        # Save to the model
+                        img_name = os.path.basename(local_path)
+                        img_field.save(img_name, ContentFile(response.content), save=False)
+                        self.stdout.write(self.style.SUCCESS(f'Downloaded missing image from {img_url}'))
+                    else:
+                        self.stdout.write(self.style.WARNING(f'Failed to download missing image from {img_url}: {response.status_code}'))
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f'Error downloading missing image {img_url}: {e}'))
+            else:
+                self.stdout.write(self.style.WARNING(f'Image file not found: {local_path}'))
+    
+    def import_question(self, question_data, media_dir, download_missing=False, base_url=''):
         """Import or update a question and handle media files"""
         if not question_data:
             return None
@@ -191,31 +271,12 @@ class Command(BaseCommand):
         
         # Handle image if provided
         img_path = question_data.get('img')
-        if img_path and img_path != 'null' and img_path != '':
-            # Handle both remote and local images
-            if img_path.startswith('http'):
-                # Download remote image
-                try:
-                    response = requests.get(img_path)
-                    if response.status_code == 200:
-                        img_name = os.path.basename(img_path)
-                        question.img.save(img_name, ContentFile(response.content), save=False)
-                except Exception as e:
-                    self.stdout.write(self.style.WARNING(f'Error downloading image {img_path}: {e}'))
-            else:
-                # Handle local image (assuming it's in the media directory)
-                local_path = os.path.join(media_dir, img_path.replace('media/', ''))
-                if os.path.exists(local_path):
-                    with open(local_path, 'rb') as img_file:
-                        img_name = os.path.basename(local_path)
-                        question.img.save(img_name, ContentFile(img_file.read()), save=False)
-                else:
-                    self.stdout.write(self.style.WARNING(f'Image file not found: {local_path}'))
+        self.handle_image(question, 'img', img_path, media_dir, download_missing, base_url)
         
         question.save()
         return question
         
-    def import_option(self, option_data, media_dir):
+    def import_option(self, option_data, media_dir, download_missing=False, base_url=''):
         """Import or update an option and handle media files"""
         if not option_data:
             return None
@@ -248,26 +309,7 @@ class Command(BaseCommand):
         
         # Handle image if provided
         img_path = option_data.get('img')
-        if img_path and img_path != 'null' and img_path != '':
-            # Handle both remote and local images
-            if img_path.startswith('http'):
-                # Download remote image
-                try:
-                    response = requests.get(img_path)
-                    if response.status_code == 200:
-                        img_name = os.path.basename(img_path)
-                        option.img.save(img_name, ContentFile(response.content), save=False)
-                except Exception as e:
-                    self.stdout.write(self.style.WARNING(f'Error downloading image {img_path}: {e}'))
-            else:
-                # Handle local image (assuming it's in the media directory)
-                local_path = os.path.join(media_dir, img_path.replace('media/', ''))
-                if os.path.exists(local_path):
-                    with open(local_path, 'rb') as img_file:
-                        img_name = os.path.basename(local_path)
-                        option.img.save(img_name, ContentFile(img_file.read()), save=False)
-                else:
-                    self.stdout.write(self.style.WARNING(f'Image file not found: {local_path}'))
+        self.handle_image(option, 'img', img_path, media_dir, download_missing, base_url)
         
         option.save()
         return option 
