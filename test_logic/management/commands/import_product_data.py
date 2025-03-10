@@ -89,18 +89,6 @@ class Command(BaseCommand):
             self.stdout.write(f"Found {len(questions_data)} questions to import")
             imported_questions = 0
             for question_data in questions_data:
-                # Clean HTML content if enabled
-                if clean_html:
-                    self.clean_html_content(question_data, 'text', preserve_tags)
-                    self.clean_html_content(question_data, 'text2', preserve_tags)
-                    self.clean_html_content(question_data, 'text3', preserve_tags)
-                
-                # Extract images from HTML content if enabled
-                if extract_html_images:
-                    self.extract_images_from_html(question_data, 'text', media_dir, download_missing, base_url)
-                    self.extract_images_from_html(question_data, 'text2', media_dir, download_missing, base_url)
-                    self.extract_images_from_html(question_data, 'text3', media_dir, download_missing, base_url)
-                
                 question = self.import_question(question_data, media_dir, download_missing, base_url)
                 if question:
                     imported_questions += 1
@@ -111,14 +99,6 @@ class Command(BaseCommand):
             self.stdout.write(f"Found {len(options_data)} options to import")
             imported_options = 0
             for option_data in options_data:
-                # Clean HTML content if enabled
-                if clean_html:
-                    self.clean_html_content(option_data, 'text', preserve_tags)
-                
-                # Extract images from HTML content if enabled
-                if extract_html_images:
-                    self.extract_images_from_html(option_data, 'text', media_dir, download_missing, base_url)
-                
                 option = self.import_option(option_data, media_dir, download_missing, base_url)
                 if option:
                     imported_options += 1
@@ -407,6 +387,21 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Test with ID {test_id} not found, skipping question'))
             return None
         
+        # Check if image is required and exists
+        img_path = question_data.get('img')
+        if img_path and img_path != 'null' and img_path != '':
+            # Clean the image path
+            clean_path = self.clean_image_path(img_path)
+            if not clean_path:
+                self.stdout.write(self.style.WARNING(f"Could not clean image path: {img_path}, skipping question"))
+                return None
+                
+            # Check if the image exists
+            local_path = os.path.join(media_dir, clean_path)
+            if not os.path.exists(local_path) and not download_missing:
+                self.stdout.write(self.style.WARNING(f"Image file not found: {local_path}, skipping question"))
+                return None
+        
         # Try to get existing question or create a new one
         try:
             question = Question.objects.get(id=question_id)
@@ -414,6 +409,10 @@ class Command(BaseCommand):
         except Question.DoesNotExist:
             question = Question(id=question_id)
             self.stdout.write(self.style.SUCCESS(f'Creating new question with ID: {question_id}'))
+        
+        # Clean HTML content from text fields
+        for field in ['text', 'text2', 'text3']:
+            self.clean_html_content(question_data, field, ['p', 'strong', 'em', 'br', 'img', 'sup', 'sub', 'span'])
         
         # Update question fields
         question.test = test
@@ -438,8 +437,8 @@ class Command(BaseCommand):
         question.question_usage = question_data.get('question_usage', question.question_usage)
         
         # Handle image if provided
-        img_path = question_data.get('img')
-        self.handle_image(question, 'img', img_path, media_dir, download_missing, base_url)
+        if img_path and img_path != 'null' and img_path != '':
+            self.handle_image(question, 'img', img_path, media_dir, download_missing, base_url)
         
         question.save()
         return question
@@ -462,6 +461,21 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Question with ID {question_id} not found, skipping option'))
             return None
         
+        # Check if image is required and exists
+        img_path = option_data.get('img')
+        if img_path and img_path != 'null' and img_path != '':
+            # Clean the image path
+            clean_path = self.clean_image_path(img_path)
+            if not clean_path:
+                self.stdout.write(self.style.WARNING(f"Could not clean image path: {img_path}, skipping option"))
+                return None
+                
+            # Check if the image exists
+            local_path = os.path.join(media_dir, clean_path)
+            if not os.path.exists(local_path) and not download_missing:
+                self.stdout.write(self.style.WARNING(f"Image file not found: {local_path}, skipping option"))
+                return None
+        
         # Try to get existing option or create a new one
         try:
             option = Option.objects.get(id=option_id)
@@ -470,14 +484,17 @@ class Command(BaseCommand):
             option = Option(id=option_id)
             self.stdout.write(self.style.SUCCESS(f'Creating new option with ID: {option_id}'))
         
+        # Clean HTML content from text field
+        self.clean_html_content(option_data, 'text', ['p', 'strong', 'em', 'br', 'img', 'sup', 'sub', 'span'])
+        
         # Update option fields
         option.question = question
         option.text = option_data.get('text', option.text)
         option.is_correct = option_data.get('is_correct', option.is_correct)
         
         # Handle image if provided
-        img_path = option_data.get('img')
-        self.handle_image(option, 'img', img_path, media_dir, download_missing, base_url)
+        if img_path and img_path != 'null' and img_path != '':
+            self.handle_image(option, 'img', img_path, media_dir, download_missing, base_url)
         
         option.save()
         return option
