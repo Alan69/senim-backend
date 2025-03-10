@@ -106,9 +106,25 @@ class CurrentProductSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    subject_limit = serializers.SerializerMethodField()
+    
     class Meta:
         model = Product
         fields = ['id', 'title', 'sum', 'description', 'time', 'subject_limit', 'product_type']
+    
+    def get_subject_limit(self, obj):
+        # Check if the product ID matches one of the specified IDs
+        special_product_ids = [
+            '4ce7261c-29e8-4514-94c0-68344010c2d9',
+            '59c6f3a4-14e9-4270-a859-c1131724f51c'
+        ]
+        
+        if str(obj.id) in special_product_ids:
+            # Return a value between 3 and 6 for the specified products
+            return obj.subject_limit if 3 <= obj.subject_limit <= 6 else 3
+        
+        # Return the original value for other products
+        return obj.subject_limit
 
 class TestSerializer(serializers.ModelSerializer):
     class Meta:
