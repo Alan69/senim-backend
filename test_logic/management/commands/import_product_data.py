@@ -9,6 +9,7 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from test_logic.models import Product, Test, Question, Option
 from django.utils.dateparse import parse_date
+from bs4 import BeautifulSoup
 
 
 class Command(BaseCommand):
@@ -19,52 +20,105 @@ class Command(BaseCommand):
         parser.add_argument('--media-dir', type=str, help='Directory to save media files', default='media')
         parser.add_argument('--download-missing', action='store_true', help='Download missing images from a base URL')
         parser.add_argument('--base-url', type=str, help='Base URL for downloading missing images', default='')
+        parser.add_argument('--extract-html-images', action='store_true', help='Extract and process images from HTML content')
 
     def handle(self, *args, **options):
         json_file_path = options['json_file']
         media_dir = options['media_dir']
         download_missing = options.get('download_missing', False)
         base_url = options.get('base_url', '')
+        extract_html_images = options.get('extract_html_images', False)
+        
+        self.stdout.write(f"Starting import from {json_file_path}")
+        self.stdout.write(f"Media directory: {media_dir}")
+        self.stdout.write(f"Download missing: {download_missing}")
+        self.stdout.write(f"Base URL: {base_url}")
+        self.stdout.write(f"Extract HTML images: {extract_html_images}")
         
         # Ensure media directory exists
         os.makedirs(media_dir, exist_ok=True)
+        self.stdout.write(f"Created/verified media directory: {media_dir}")
         
         # Ensure images directory exists
         images_dir = os.path.join(media_dir, 'images')
         os.makedirs(images_dir, exist_ok=True)
+        self.stdout.write(f"Created/verified images directory: {images_dir}")
+        
+        # List existing images to help with debugging
+        self.stdout.write("Existing images:")
+        try:
+            for file in os.listdir(images_dir):
+                self.stdout.write(f"  - {file}")
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"Error listing images: {e}"))
         
         try:
             with open(json_file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
+                self.stdout.write(f"Successfully loaded JSON data from {json_file_path}")
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error reading JSON file: {e}'))
             return
         
         # Process product data
         try:
-            self.import_product(data.get('product', {}))
-            self.stdout.write(self.style.SUCCESS('Product imported successfully'))
+            product = self.import_product(data.get('product', {}))
+            if product:
+                self.stdout.write(self.style.SUCCESS(f'Product imported successfully: {product.title}'))
+            else:
+                self.stdout.write(self.style.WARNING('No product data found or import failed'))
             
             # Process tests data
             tests_data = data.get('tests', [])
+            self.stdout.write(f"Found {len(tests_data)} tests to import")
+            imported_tests = 0
             for test_data in tests_data:
-                self.import_test(test_data)
-            self.stdout.write(self.style.SUCCESS(f'{len(tests_data)} tests imported successfully'))
+                test = self.import_test(test_data)
+                if test:
+                    imported_tests += 1
+            self.stdout.write(self.style.SUCCESS(f'{imported_tests} tests imported successfully'))
             
             # Process questions data
             questions_data = data.get('questions', [])
+            self.stdout.write(f"Found {len(questions_data)} questions to import")
+            imported_questions = 0
             for question_data in questions_data:
-                self.import_question(question_data, media_dir, download_missing, base_url)
-            self.stdout.write(self.style.SUCCESS(f'{len(questions_data)} questions imported successfully'))
+                # Extract images from HTML content if enabled
+                if extract_html_images:
+                    self.extract_images_from_html(question_data, 'text', media_dir, download_missing, base_url)
+                    self.extract_images_from_html(question_data, 'text2', media_dir, download_missing, base_url)
+                    self.extract_images_from_html(question_data, 'text3', media_dir, download_missing, base_url)
+                
+                question = self.import_question(question_data, media_dir, download_missing, base_url)
+                if question:
+                    imported_questions += 1
+            self.stdout.write(self.style.SUCCESS(f'{imported_questions} questions imported successfully'))
             
             # Process options data
             options_data = data.get('options', [])
+            self.stdout.write(f"Found {len(options_data)} options to import")
+            imported_options = 0
             for option_data in options_data:
-                self.import_option(option_data, media_dir, download_missing, base_url)
-            self.stdout.write(self.style.SUCCESS(f'{len(options_data)} options imported successfully'))
+                # Extract images from HTML content if enabled
+                if extract_html_images:
+                    self.extract_images_from_html(option_data, 'text', media_dir, download_missing, base_url)
+                
+                option = self.import_option(option_data, media_dir, download_missing, base_url)
+                if option:
+                    imported_options += 1
+            self.stdout.write(self.style.SUCCESS(f'{imported_options} options imported successfully'))
+            
+            # Summary
+            self.stdout.write("\nImport Summary:")
+            self.stdout.write(f"Products: {1 if product else 0}")
+            self.stdout.write(f"Tests: {imported_tests}/{len(tests_data)}")
+            self.stdout.write(f"Questions: {imported_questions}/{len(questions_data)}")
+            self.stdout.write(f"Options: {imported_options}/{len(options_data)}")
             
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error importing data: {e}'))
+            import traceback
+            self.stdout.write(traceback.format_exc())
     
     def import_product(self, product_data):
         """Import or update a product"""
@@ -155,8 +209,23 @@ class Command(BaseCommand):
         if not img_path or img_path == 'null' or img_path == '':
             return None
             
+        # Extract the UUID part from the path if it exists
+        uuid_pattern = r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
+        uuid_match = re.search(uuid_pattern, img_path)
+        
+        if uuid_match:
+            uuid_str = uuid_match.group(1)
+            # Get the file extension
+            ext_match = re.search(r'\.([a-zA-Z0-9]+)', img_path)
+            if ext_match:
+                ext = ext_match.group(0)  # Include the dot
+                # Create a clean path with just the UUID and extension
+                clean_path = f"images/{uuid_str}{ext}"
+                return clean_path
+        
+        # If no UUID found or couldn't extract extension, try the original approach
         # Remove timestamp from image path (e.g., .jpg1490335623040 -> .jpg)
-        img_path = re.sub(r'(\.(jpg|png|gif|jpeg))\d+$', r'\1', img_path)
+        img_path = re.sub(r'(\.(jpg|png|gif|jpeg))\d+', r'\1', img_path)
         
         # Remove 'media/' prefix if present
         if img_path.startswith('media/'):
@@ -169,10 +238,15 @@ class Command(BaseCommand):
         if not img_path or img_path == 'null' or img_path == '':
             return
             
+        self.stdout.write(f"Processing image: {img_path}")
+            
         # Clean the image path
         clean_path = self.clean_image_path(img_path)
         if not clean_path:
+            self.stdout.write(self.style.WARNING(f"Could not clean image path: {img_path}"))
             return
+            
+        self.stdout.write(f"Cleaned image path: {clean_path}")
             
         # Get the image field
         img_field = getattr(model_instance, img_field_name)
@@ -192,6 +266,7 @@ class Command(BaseCommand):
         else:
             # Handle local images
             local_path = os.path.join(media_dir, clean_path)
+            self.stdout.write(f"Looking for image at: {local_path}")
             
             # Check if the file exists
             if os.path.exists(local_path):
@@ -202,8 +277,18 @@ class Command(BaseCommand):
             elif download_missing and base_url:
                 # Try to download the missing image
                 try:
+                    # Try with the clean path
                     img_url = f"{base_url.rstrip('/')}/{clean_path}"
+                    self.stdout.write(f"Attempting to download from: {img_url}")
                     response = requests.get(img_url)
+                    
+                    # If that fails, try with just the filename
+                    if response.status_code != 200:
+                        img_name = os.path.basename(clean_path)
+                        img_url = f"{base_url.rstrip('/')}/{img_name}"
+                        self.stdout.write(f"Retrying with: {img_url}")
+                        response = requests.get(img_url)
+                    
                     if response.status_code == 200:
                         # Save the downloaded image to the media directory
                         os.makedirs(os.path.dirname(local_path), exist_ok=True)
@@ -216,10 +301,50 @@ class Command(BaseCommand):
                         self.stdout.write(self.style.SUCCESS(f'Downloaded missing image from {img_url}'))
                     else:
                         self.stdout.write(self.style.WARNING(f'Failed to download missing image from {img_url}: {response.status_code}'))
+                        
+                        # As a last resort, try to find a file with the same UUID in the media directory
+                        uuid_pattern = r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
+                        uuid_match = re.search(uuid_pattern, clean_path)
+                        
+                        if uuid_match:
+                            uuid_str = uuid_match.group(1)
+                            self.stdout.write(f"Looking for any file with UUID: {uuid_str}")
+                            
+                            # Look for any file with this UUID in the media directory
+                            for root, dirs, files in os.walk(media_dir):
+                                for file in files:
+                                    if uuid_str in file:
+                                        file_path = os.path.join(root, file)
+                                        self.stdout.write(f"Found matching file: {file_path}")
+                                        
+                                        with open(file_path, 'rb') as img_file:
+                                            img_field.save(file, ContentFile(img_file.read()), save=False)
+                                            self.stdout.write(self.style.SUCCESS(f'Used existing file with matching UUID: {file_path}'))
+                                            return
                 except Exception as e:
                     self.stdout.write(self.style.WARNING(f'Error downloading missing image {img_url}: {e}'))
             else:
                 self.stdout.write(self.style.WARNING(f'Image file not found: {local_path}'))
+                
+                # Try to find a file with the same UUID in the media directory
+                uuid_pattern = r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
+                uuid_match = re.search(uuid_pattern, clean_path)
+                
+                if uuid_match:
+                    uuid_str = uuid_match.group(1)
+                    self.stdout.write(f"Looking for any file with UUID: {uuid_str}")
+                    
+                    # Look for any file with this UUID in the media directory
+                    for root, dirs, files in os.walk(media_dir):
+                        for file in files:
+                            if uuid_str in file:
+                                file_path = os.path.join(root, file)
+                                self.stdout.write(f"Found matching file: {file_path}")
+                                
+                                with open(file_path, 'rb') as img_file:
+                                    img_field.save(file, ContentFile(img_file.read()), save=False)
+                                    self.stdout.write(self.style.SUCCESS(f'Used existing file with matching UUID: {file_path}'))
+                                    return
     
     def import_question(self, question_data, media_dir, download_missing=False, base_url=''):
         """Import or update a question and handle media files"""
@@ -312,4 +437,55 @@ class Command(BaseCommand):
         self.handle_image(option, 'img', img_path, media_dir, download_missing, base_url)
         
         option.save()
-        return option 
+        return option
+    
+    def extract_images_from_html(self, data, field_name, media_dir, download_missing, base_url):
+        """Extract images from HTML content and process them"""
+        html_content = data.get(field_name)
+        if not html_content:
+            return
+            
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            img_tags = soup.find_all('img')
+            
+            for img in img_tags:
+                src = img.get('src')
+                if src:
+                    self.stdout.write(f"Found image in HTML: {src}")
+                    
+                    # Clean the image path
+                    clean_path = self.clean_image_path(src)
+                    if not clean_path:
+                        continue
+                        
+                    # Process the image
+                    local_path = os.path.join(media_dir, clean_path)
+                    
+                    # Check if the file exists
+                    if not os.path.exists(local_path) and download_missing and base_url:
+                        # Try to download the missing image
+                        try:
+                            img_url = f"{base_url.rstrip('/')}/{clean_path}"
+                            self.stdout.write(f"Attempting to download HTML image from: {img_url}")
+                            response = requests.get(img_url)
+                            
+                            # If that fails, try with just the filename
+                            if response.status_code != 200:
+                                img_name = os.path.basename(clean_path)
+                                img_url = f"{base_url.rstrip('/')}/{img_name}"
+                                self.stdout.write(f"Retrying with: {img_url}")
+                                response = requests.get(img_url)
+                            
+                            if response.status_code == 200:
+                                # Save the downloaded image to the media directory
+                                os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                                with open(local_path, 'wb') as f:
+                                    f.write(response.content)
+                                self.stdout.write(self.style.SUCCESS(f'Downloaded HTML image to {local_path}'))
+                            else:
+                                self.stdout.write(self.style.WARNING(f'Failed to download HTML image from {img_url}: {response.status_code}'))
+                        except Exception as e:
+                            self.stdout.write(self.style.WARNING(f'Error downloading HTML image {img_url}: {e}'))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'Error extracting images from HTML: {e}')) 
