@@ -6,7 +6,7 @@ from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.core.files.base import ContentFile
 from django.conf import settings
-from test_logic.models import Product, Test, Question
+from test_logic.models import Product, Test, Question, Option
 from django.utils.dateparse import parse_date
 
 
@@ -47,6 +47,12 @@ class Command(BaseCommand):
             for question_data in questions_data:
                 self.import_question(question_data, media_dir)
             self.stdout.write(self.style.SUCCESS(f'{len(questions_data)} questions imported successfully'))
+            
+            # Process options data
+            options_data = data.get('options', [])
+            for option_data in options_data:
+                self.import_option(option_data, media_dir)
+            self.stdout.write(self.style.SUCCESS(f'{len(options_data)} options imported successfully'))
             
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error importing data: {e}'))
@@ -207,4 +213,61 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(f'Image file not found: {local_path}'))
         
         question.save()
-        return question 
+        return question
+        
+    def import_option(self, option_data, media_dir):
+        """Import or update an option and handle media files"""
+        if not option_data:
+            return None
+        
+        option_id = option_data.get('id')
+        if not option_id:
+            self.stdout.write(self.style.WARNING('Option ID is missing, skipping'))
+            return None
+        
+        # Get question
+        question_id = option_data.get('question')
+        try:
+            question = Question.objects.get(id=question_id)
+        except Question.DoesNotExist:
+            self.stdout.write(self.style.ERROR(f'Question with ID {question_id} not found, skipping option'))
+            return None
+        
+        # Try to get existing option or create a new one
+        try:
+            option = Option.objects.get(id=option_id)
+            self.stdout.write(self.style.SUCCESS(f'Found existing option: {option_id}'))
+        except Option.DoesNotExist:
+            option = Option(id=option_id)
+            self.stdout.write(self.style.SUCCESS(f'Creating new option with ID: {option_id}'))
+        
+        # Update option fields
+        option.question = question
+        option.text = option_data.get('text', option.text)
+        option.is_correct = option_data.get('is_correct', option.is_correct)
+        
+        # Handle image if provided
+        img_path = option_data.get('img')
+        if img_path and img_path != 'null' and img_path != '':
+            # Handle both remote and local images
+            if img_path.startswith('http'):
+                # Download remote image
+                try:
+                    response = requests.get(img_path)
+                    if response.status_code == 200:
+                        img_name = os.path.basename(img_path)
+                        option.img.save(img_name, ContentFile(response.content), save=False)
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f'Error downloading image {img_path}: {e}'))
+            else:
+                # Handle local image (assuming it's in the media directory)
+                local_path = os.path.join(media_dir, img_path.replace('media/', ''))
+                if os.path.exists(local_path):
+                    with open(local_path, 'rb') as img_file:
+                        img_name = os.path.basename(local_path)
+                        option.img.save(img_name, ContentFile(img_file.read()), save=False)
+                else:
+                    self.stdout.write(self.style.WARNING(f'Image file not found: {local_path}'))
+        
+        option.save()
+        return option 
