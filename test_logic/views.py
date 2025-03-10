@@ -194,7 +194,7 @@ def required_tests_by_product(request, product_id):
     # Filter tests by product and only include grades 0, 4, or 9
     required_tests = Test.objects.filter(
         product=product,
-        grade__in=[0, 4]  # Only include tests with these specific grades
+        grade__in=[0, 4, 9]  # Only include tests with these specific grades
     )
 
     # Serialize the tests
