@@ -1,4 +1,4 @@
-from random import sample
+from random import sample, shuffle
 from rest_framework import serializers
 from .models import Product, Test, Question, Option, Result, BookSuggestion, CompletedTest, CompletedQuestion
 from accounts.models import User
@@ -13,12 +13,21 @@ class CurrentOptionSerializer(serializers.ModelSerializer):
         fields = ['id', 'text', 'img']
 
 class CurrentQuestionSerializer(serializers.ModelSerializer):
-    options = CurrentOptionSerializer(many=True)
+    options = serializers.SerializerMethodField()
     source_text = serializers.CharField(source='source_text.text', read_only=True)
 
     class Meta:
         model = Question
         fields = ['id', 'text', 'text2', 'text3', 'img', 'task_type', 'options', 'source_text']
+    
+    def get_options(self, obj):
+        # Get all options for this question
+        options = obj.options.all()
+        # Convert queryset to list and randomize the order
+        options_list = list(options)
+        shuffle(options_list)
+        # Serialize the randomized options
+        return CurrentOptionSerializer(options_list, many=True).data
 
 class CurrentTestSerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField()

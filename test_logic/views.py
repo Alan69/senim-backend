@@ -21,6 +21,7 @@ import uuid
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 from decimal import Decimal
+from random import shuffle
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,10 @@ class QuestionViewSet(viewsets.ModelViewSet):
     def get_options(self, request, pk=None):
         question = self.get_object()
         options = Option.objects.filter(question=question)
-        return Response(OptionSerializer(options, many=True).data)
+        # Convert queryset to list and randomize the order
+        options_list = list(options)
+        shuffle(options_list)
+        return Response(OptionSerializer(options_list, many=True).data)
 
 
 class OptionViewSet(viewsets.ModelViewSet):
