@@ -21,7 +21,8 @@ class Command(BaseCommand):
         parser.add_argument('--download-missing', action='store_true', help='Download missing images from a base URL')
         parser.add_argument('--base-url', type=str, help='Base URL for downloading missing images', default='')
         parser.add_argument('--extract-html-images', action='store_true', help='Extract and process images from HTML content')
-        parser.add_argument('--clean-html', action='store_true', help='Clean HTML content by removing unwanted tags')
+        parser.add_argument('--clean-html', action='store_true', default=True, help='Clean HTML content by removing unwanted tags')
+        parser.add_argument('--no-clean-html', action='store_false', dest='clean_html', help='Do not clean HTML content')
         parser.add_argument('--preserve-tags', type=str, help='Comma-separated list of HTML tags to preserve when cleaning', default='p,strong,em,br,img,sup,sub,span')
 
     def handle(self, *args, **options):
@@ -30,7 +31,7 @@ class Command(BaseCommand):
         download_missing = options.get('download_missing', False)
         base_url = options.get('base_url', '')
         extract_html_images = options.get('extract_html_images', False)
-        clean_html = options.get('clean_html', False)
+        clean_html = options.get('clean_html', True)  # Default to True to always clean HTML
         preserve_tags = options.get('preserve_tags', 'p,strong,em,br,img,sup,sub,span').split(',')
         
         self.stdout.write(f"Starting import from {json_file_path}")
@@ -89,6 +90,12 @@ class Command(BaseCommand):
             self.stdout.write(f"Found {len(questions_data)} questions to import")
             imported_questions = 0
             for question_data in questions_data:
+                # Extract images from HTML content if enabled
+                if extract_html_images:
+                    self.extract_images_from_html(question_data, 'text', media_dir, download_missing, base_url)
+                    self.extract_images_from_html(question_data, 'text2', media_dir, download_missing, base_url)
+                    self.extract_images_from_html(question_data, 'text3', media_dir, download_missing, base_url)
+                
                 question = self.import_question(question_data, media_dir, download_missing, base_url)
                 if question:
                     imported_questions += 1
@@ -99,6 +106,10 @@ class Command(BaseCommand):
             self.stdout.write(f"Found {len(options_data)} options to import")
             imported_options = 0
             for option_data in options_data:
+                # Extract images from HTML content if enabled
+                if extract_html_images:
+                    self.extract_images_from_html(option_data, 'text', media_dir, download_missing, base_url)
+                
                 option = self.import_option(option_data, media_dir, download_missing, base_url)
                 if option:
                     imported_options += 1
