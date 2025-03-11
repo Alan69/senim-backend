@@ -12,5 +12,10 @@ class Command(BaseCommand):
             tests = Test.objects.filter(product=product)
 
             for test in tests:
-                question_count = Question.objects.filter(test=test).count()
-                self.stdout.write(f"  Test: {test.title} - {question_count} questions")
+                questions = Question.objects.filter(test=test)
+                question_count = questions.count()
+                
+                # Calculate test grade (assuming each question has a grade field)
+                total_grade = sum(question.grade for question in questions if hasattr(question, 'grade') and question.grade is not None)
+                
+                self.stdout.write(f"  Test: {test.title} - {question_count} questions, Total Grade: {total_grade}")
