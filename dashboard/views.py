@@ -110,6 +110,7 @@ def test_statistics(request):
         'user__region'
     ).prefetch_related(
         'completed_questions',
+        'completed_questions__question',
         'completed_questions__selected_option'
     ).order_by('-completed_date')  # Add ordering
 
@@ -123,82 +124,55 @@ def test_statistics(request):
     if end_date:
         completed_tests = completed_tests.filter(completed_date__lte=end_date)
 
-    # Annotate with correct and wrong answer counts
-    completed_tests = completed_tests.annotate(
-        correct_answers=Count(
-            'completed_questions',
-            filter=Q(completed_questions__selected_option__is_correct=True),
-            distinct=True
-        ),
-        wrong_answers=Count(
-            'completed_questions',
-            filter=Q(completed_questions__selected_option__is_correct=False) | 
-                  Q(completed_questions__selected_option__isnull=True),
-            distinct=True
-        )
-    ).annotate(
-        total_questions=F('correct_answers') + F('wrong_answers'),
-        score_percentage=Case(
-            When(total_questions=0, then=Value(0.0)),
-            default=100.0 * F('correct_answers') / Cast(F('total_questions'), FloatField()),
-            output_field=FloatField(),
-        )
-    )
-
-    # Add more debug logging
-    print("\nDEBUG: Checking completed questions")
-    for test in CompletedTest.objects.filter(user__region_id=region_id)[:1]:
-        print(f"\nTest ID: {test.id}")
-        print(f"User: {test.user.username}")
-        print(f"Product: {test.product.title}")
-        questions = test.completed_questions.all().select_related('selected_option')
-        print(f"Questions count: {questions.count()}")
-        for q in questions:
-            print(f"Question ID: {q.id}")
-            print(f"Selected option: {q.selected_option}")
-            if q.selected_option:
-                print(f"Is correct: {q.selected_option.is_correct}")
-
-    # Handle Excel export - do this before pagination to include all data
-    if request.GET.get('export') == 'excel':
-        all_statistics = []
-        for completed_test in completed_tests:
-            all_statistics.append({
-                'completed_test': completed_test,
-                'user': completed_test.user,
-                'region': completed_test.user.region,
-                'school': completed_test.user.school,
-                'completed_date': completed_test.completed_date,
-                'correct_answers': completed_test.correct_answers,
-                'wrong_answers': completed_test.wrong_answers,
-                'total_questions': completed_test.total_questions,
-                'score_percentage': round(completed_test.score_percentage, 2)
-            })
-        return export_to_excel(all_statistics)
-
-    # Paginate results for display
-    paginator = Paginator(completed_tests, 50)  # Show 50 items per page
-    page_obj = paginator.get_page(page)
-
+    # Process the results manually instead of using annotate
     statistics = []
-    for completed_test in page_obj:
+    for completed_test in completed_tests:
+        correct_answers = 0
+        wrong_answers = 0
+        
+        for question in completed_test.completed_questions.all():
+            # Check if any selected option is correct
+            has_correct = False
+            for option in question.selected_option.all():
+                if option.is_correct:
+                    has_correct = True
+                    break
+            
+            if has_correct:
+                correct_answers += 1
+            else:
+                wrong_answers += 1
+        
+        total_questions = correct_answers + wrong_answers
+        score_percentage = 0
+        if total_questions > 0:
+            score_percentage = round((correct_answers / total_questions) * 100, 2)
+        
         statistics.append({
             'completed_test': completed_test,
             'user': completed_test.user,
             'region': completed_test.user.region,
             'school': completed_test.user.school,
             'completed_date': completed_test.completed_date,
-            'correct_answers': completed_test.correct_answers,
-            'wrong_answers': completed_test.wrong_answers,
-            'total_questions': completed_test.total_questions,
-            'score_percentage': round(completed_test.score_percentage, 2)
+            'correct_answers': correct_answers,
+            'wrong_answers': wrong_answers,
+            'total_questions': total_questions,
+            'score_percentage': score_percentage
         })
+
+    # Handle Excel export - do this before pagination to include all data
+    if request.GET.get('export') == 'excel':
+        return export_to_excel(statistics)
+
+    # Paginate results for display
+    paginator = Paginator(statistics, 50)  # Show 50 items per page
+    page_obj = paginator.get_page(page)
 
     # Get all regions for the filter dropdown
     regions = Region.objects.all()
 
     context = {
-        'statistics': statistics,
+        'statistics': page_obj,
         'page_obj': page_obj,
         'regions': regions,
         'selected_region': region_id,
