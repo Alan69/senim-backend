@@ -291,7 +291,7 @@ class OptionSerializer(serializers.ModelSerializer):
 # Serializer for the questions within a test
 class QuestionSerializer(serializers.ModelSerializer):
     # All options for the question, assuming reverse relation is 'options'
-    all_options = OptionSerializer(source='question.options', many=True)
+    all_options = serializers.SerializerMethodField()
     selected_option = OptionSerializer(many=True)  # Change to many=True
 
     # Add the text field explicitly by accessing it from the 'question' relation
@@ -300,6 +300,15 @@ class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompletedQuestion  # Serializer is for CompletedQuestion model
         fields = ['id', 'question_text', 'selected_option', 'all_options']  # Include question_text
+        
+    def get_all_options(self, obj):
+        # Get all options for this question
+        options = obj.question.options.all()
+        # Convert queryset to list and randomize the order
+        options_list = list(options)
+        shuffle(options_list)
+        # Serialize the randomized options
+        return OptionSerializer(options_list, many=True).data
 
 # Serializer for tests within the product
 class CTestSerializer(serializers.ModelSerializer):
