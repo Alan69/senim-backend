@@ -111,7 +111,9 @@ def test_statistics(request):
     ).prefetch_related(
         'completed_questions',
         'completed_questions__question',
-        'completed_questions__selected_option'
+        'completed_questions__selected_option',
+        'completed_questions__test',
+        'tests'
     ).order_by('-completed_date')  # Add ordering
 
     # Apply filters - Fix the region filter to handle empty strings
@@ -130,7 +132,22 @@ def test_statistics(request):
         correct_answers = 0
         wrong_answers = 0
         
+        # Dictionary to store test-specific statistics
+        test_stats = {}
+        
         for question in completed_test.completed_questions.all():
+            # Get the test for this question
+            test = question.test
+            test_title = test.title
+            
+            # Initialize test stats if not already present
+            if test_title not in test_stats:
+                test_stats[test_title] = {
+                    'correct': 0,
+                    'incorrect': 0,
+                    'total': 0
+                }
+            
             # Check if any selected option is correct
             has_correct = False
             for option in question.selected_option.all():
@@ -138,15 +155,31 @@ def test_statistics(request):
                     has_correct = True
                     break
             
+            # Update overall statistics
             if has_correct:
                 correct_answers += 1
+                test_stats[test_title]['correct'] += 1
             else:
                 wrong_answers += 1
+                test_stats[test_title]['incorrect'] += 1
+            
+            test_stats[test_title]['total'] += 1
         
         total_questions = correct_answers + wrong_answers
         score_percentage = 0
         if total_questions > 0:
             score_percentage = round((correct_answers / total_questions) * 100, 2)
+        
+        # Convert test_stats dictionary to a list for easier template rendering
+        test_statistics = []
+        for test_name, stats in test_stats.items():
+            test_statistics.append({
+                'name': test_name,
+                'correct': stats['correct'],
+                'incorrect': stats['incorrect'],
+                'total': stats['total'],
+                'percentage': round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
+            })
         
         statistics.append({
             'completed_test': completed_test,
@@ -157,7 +190,8 @@ def test_statistics(request):
             'correct_answers': correct_answers,
             'wrong_answers': wrong_answers,
             'total_questions': total_questions,
-            'score_percentage': score_percentage
+            'score_percentage': score_percentage,
+            'test_statistics': test_statistics
         })
 
     # Handle Excel export - do this before pagination to include all data
@@ -186,7 +220,7 @@ def test_statistics(request):
 def export_to_excel(statistics):
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output)
-    worksheet = workbook.add_worksheet()
+    worksheet = workbook.add_worksheet('Общая статистика')
 
     # Add headers in Russian
     headers = [
@@ -206,6 +240,32 @@ def export_to_excel(statistics):
         worksheet.write(row, 5, stat['wrong_answers'])
         worksheet.write(row, 6, stat['total_questions'])
         worksheet.write(row, 7, stat['score_percentage'])
+    
+    # Create a new worksheet for test-specific statistics
+    test_worksheet = workbook.add_worksheet('Статистика по предметам')
+    
+    # Add headers for test statistics
+    test_headers = [
+        'Пользователь', 'Предмет', 'Правильные ответы', 'Неправильные ответы', 
+        'Всего вопросов', 'Результат (%)'
+    ]
+    
+    for col, header in enumerate(test_headers):
+        test_worksheet.write(0, col, header)
+    
+    # Add test-specific data
+    row_index = 1
+    for stat in statistics:
+        user_name = f"{stat['user'].first_name} {stat['user'].last_name}"
+        
+        for test_stat in stat['test_statistics']:
+            test_worksheet.write(row_index, 0, user_name)
+            test_worksheet.write(row_index, 1, test_stat['name'])
+            test_worksheet.write(row_index, 2, test_stat['correct'])
+            test_worksheet.write(row_index, 3, test_stat['incorrect'])
+            test_worksheet.write(row_index, 4, test_stat['total'])
+            test_worksheet.write(row_index, 5, test_stat['percentage'])
+            row_index += 1
 
     workbook.close()
     output.seek(0)

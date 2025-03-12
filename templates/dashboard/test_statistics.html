@@ -6,6 +6,31 @@
     <title>Статистика тестирования</title>
     <!-- Bootstrap CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .test-details {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+        }
+        .test-details h6 {
+            margin-bottom: 5px;
+        }
+        .test-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .test-item:last-child {
+            border-bottom: none;
+        }
+        .collapse-toggle {
+            cursor: pointer;
+            color: #007bff;
+        }
+        .collapse-toggle:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
 <div class="container mt-5">
@@ -63,6 +88,7 @@
                             <th>Неправильные ответы</th>
                             <th>Всего вопросов</th>
                             <th>Результат (%)</th>
+                            <th>Детали</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -77,10 +103,33 @@
                             <td>{{ stat.wrong_answers }}</td>
                             <td>{{ stat.total_questions }}</td>
                             <td>{{ stat.score_percentage }}%</td>
+                            <td>
+                                <span class="collapse-toggle" data-toggle="collapse" data-target="#test-details-{{ forloop.counter }}">
+                                    Показать детали
+                                </span>
+                            </td>
+                        </tr>
+                        <tr class="collapse" id="test-details-{{ forloop.counter }}">
+                            <td colspan="9">
+                                <div class="test-details">
+                                    <h6>Статистика по предметам:</h6>
+                                    {% for test_stat in stat.test_statistics %}
+                                    <div class="test-item">
+                                        <strong>{{ test_stat.name }}</strong>: 
+                                        {{ test_stat.correct }} правильных, 
+                                        {{ test_stat.incorrect }} неправильных, 
+                                        всего {{ test_stat.total }} вопросов, 
+                                        результат {{ test_stat.percentage }}%
+                                    </div>
+                                    {% empty %}
+                                    <div>Нет данных по предметам</div>
+                                    {% endfor %}
+                                </div>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="9" class="text-center">Данные отсутствуют</td>
+                            <td colspan="10" class="text-center">Данные отсутствуют</td>
                         </tr>
                         {% endfor %}
                     </tbody>
