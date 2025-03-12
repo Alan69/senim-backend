@@ -234,132 +234,56 @@ def export_to_excel(completed_tests):
 
     # Add headers in Russian
     headers = [
-        'Пользователь', 'Регион', 'Школа', 'Дата завершения',
+        'Пользователь', 'Регион', 'Школа', 'Тест', 'Дата завершения',
         'Правильные ответы', 'Неправильные ответы', 'Всего вопросов', 'Результат (%)'
     ]
+    
+    # Set column widths for better readability
+    worksheet.set_column(0, 0, 30)  # User name
+    worksheet.set_column(1, 1, 20)  # Region
+    worksheet.set_column(2, 2, 20)  # School
+    worksheet.set_column(3, 3, 30)  # Test name
+    worksheet.set_column(4, 8, 15)  # Other columns
+    
     for col, header in enumerate(headers):
         worksheet.write(0, col, header, header_format)
 
     # Process and write data in chunks
     row = 1
     for completed_test in completed_tests.iterator():
+        # Get all completed questions for this test in one query
+        completed_questions = list(completed_test.completed_questions.all())
+        
+        if not completed_questions:  # Skip if no questions
+            continue
+            
+        # Get test name from the first question
+        test_name = completed_questions[0].test.title if completed_questions else ""
+        
         # Calculate statistics
         correct_answers = 0
         wrong_answers = 0
-        test_stats = {}
         
-        for question in completed_test.completed_questions.all():
+        for question in completed_questions:
             has_correct = any(option.is_correct for option in question.selected_option.all())
             if has_correct:
                 correct_answers += 1
             else:
                 wrong_answers += 1
-            
-            # Track test-specific stats
-            test_title = question.test.title
-            if test_title not in test_stats:
-                test_stats[test_title] = {'correct': 0, 'incorrect': 0, 'total': 0}
-            
-            test_stats[test_title]['total'] += 1
-            if has_correct:
-                test_stats[test_title]['correct'] += 1
-            else:
-                test_stats[test_title]['incorrect'] += 1
 
         total_questions = correct_answers + wrong_answers
         score_percentage = round((correct_answers / total_questions) * 100, 2) if total_questions > 0 else 0
 
-        # Write to main worksheet
+        # Write to worksheet
         worksheet.write(row, 0, f"{completed_test.user.first_name} {completed_test.user.last_name}")
         worksheet.write(row, 1, str(completed_test.user.region))
         worksheet.write(row, 2, completed_test.user.school)
-        worksheet.write(row, 3, completed_test.completed_date.strftime('%Y-%m-%d %H:%M'))
-        worksheet.write(row, 4, correct_answers)
-        worksheet.write(row, 5, wrong_answers)
-        worksheet.write(row, 6, total_questions)
-        worksheet.write(row, 7, score_percentage)
-        row += 1
-
-    # Second worksheet - Individual test statistics
-    test_worksheet = workbook.add_worksheet('Статистика по тестам')
-    test_headers = [
-        'Пользователь', 'Предмет', 'Правильные ответы', 'Неправильные ответы', 
-        'Всего вопросов', 'Результат (%)'
-    ]
-    
-    for col, header in enumerate(test_headers):
-        test_worksheet.write(0, col, header, header_format)
-    
-    # Write test-specific data
-    row = 1
-    
-    # Dictionary to accumulate subject statistics
-    subject_stats = {}
-    
-    for completed_test in completed_tests.iterator():
-        user_name = f"{completed_test.user.first_name} {completed_test.user.last_name}"
-        test_stats = {}
-        
-        for question in completed_test.completed_questions.all():
-            test_title = question.test.title
-            if test_title not in test_stats:
-                test_stats[test_title] = {'correct': 0, 'incorrect': 0, 'total': 0}
-            
-            has_correct = any(option.is_correct for option in question.selected_option.all())
-            test_stats[test_title]['total'] += 1
-            if has_correct:
-                test_stats[test_title]['correct'] += 1
-            else:
-                test_stats[test_title]['incorrect'] += 1
-            
-            # Accumulate subject statistics
-            if test_title not in subject_stats:
-                subject_stats[test_title] = {'correct': 0, 'incorrect': 0, 'total': 0}
-            subject_stats[test_title]['total'] += 1
-            if has_correct:
-                subject_stats[test_title]['correct'] += 1
-            else:
-                subject_stats[test_title]['incorrect'] += 1
-        
-        for test_name, stats in test_stats.items():
-            percentage = round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
-            test_worksheet.write(row, 0, user_name)
-            test_worksheet.write(row, 1, test_name)
-            test_worksheet.write(row, 2, stats['correct'])
-            test_worksheet.write(row, 3, stats['incorrect'])
-            test_worksheet.write(row, 4, stats['total'])
-            test_worksheet.write(row, 5, percentage)
-            row += 1
-
-    # Third worksheet - Subject summary statistics
-    summary_worksheet = workbook.add_worksheet('Статистика по предметам')
-    summary_headers = [
-        'Предмет',
-        'Всего правильных ответов',
-        'Всего неправильных ответов',
-        'Всего вопросов',
-        'Общий результат (%)',
-        'Количество тестов'
-    ]
-    
-    # Set column widths for better readability
-    summary_worksheet.set_column(0, 0, 30)  # Subject name column
-    summary_worksheet.set_column(1, 5, 20)  # Other columns
-    
-    # Write headers
-    for col, header in enumerate(summary_headers):
-        summary_worksheet.write(0, col, header, header_format)
-    
-    # Write subject summary data
-    row = 1
-    for subject, stats in subject_stats.items():
-        percentage = round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
-        summary_worksheet.write(row, 0, subject)
-        summary_worksheet.write(row, 1, stats['correct'])
-        summary_worksheet.write(row, 2, stats['incorrect'])
-        summary_worksheet.write(row, 3, stats['total'])
-        summary_worksheet.write(row, 4, percentage)
-        summary_worksheet.write(row, 5, len([t for t in completed_tests.iterator() if any(q.test.title == subject for q in t.completed_questions.all())]))
+        worksheet.write(row, 3, test_name)
+        worksheet.write(row, 4, completed_test.completed_date.strftime('%Y-%m-%d %H:%M'))
+        worksheet.write(row, 5, correct_answers)
+        worksheet.write(row, 6, wrong_answers)
+        worksheet.write(row, 7, total_questions)
+        worksheet.write(row, 8, score_percentage)
         row += 1
 
     workbook.close()
