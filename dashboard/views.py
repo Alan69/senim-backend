@@ -220,6 +220,16 @@ def test_statistics(request):
 def export_to_excel(completed_tests):
     output = BytesIO()
     workbook = xlsxwriter.Workbook(output, {'constant_memory': True})
+    
+    # Create formats
+    header_format = workbook.add_format({
+        'bold': True,
+        'align': 'center',
+        'valign': 'vcenter',
+        'bg_color': '#f0f0f0'
+    })
+    
+    # First worksheet - Overall statistics
     worksheet = workbook.add_worksheet('Общая статистика')
 
     # Add headers in Russian
@@ -228,7 +238,7 @@ def export_to_excel(completed_tests):
         'Правильные ответы', 'Неправильные ответы', 'Всего вопросов', 'Результат (%)'
     ]
     for col, header in enumerate(headers):
-        worksheet.write(0, col, header)
+        worksheet.write(0, col, header, header_format)
 
     # Process and write data in chunks
     row = 1
@@ -270,18 +280,22 @@ def export_to_excel(completed_tests):
         worksheet.write(row, 7, score_percentage)
         row += 1
 
-    # Create test-specific worksheet
-    test_worksheet = workbook.add_worksheet('Статистика по предметам')
+    # Second worksheet - Individual test statistics
+    test_worksheet = workbook.add_worksheet('Статистика по тестам')
     test_headers = [
         'Пользователь', 'Предмет', 'Правильные ответы', 'Неправильные ответы', 
         'Всего вопросов', 'Результат (%)'
     ]
     
     for col, header in enumerate(test_headers):
-        test_worksheet.write(0, col, header)
+        test_worksheet.write(0, col, header, header_format)
     
     # Write test-specific data
     row = 1
+    
+    # Dictionary to accumulate subject statistics
+    subject_stats = {}
+    
     for completed_test in completed_tests.iterator():
         user_name = f"{completed_test.user.first_name} {completed_test.user.last_name}"
         test_stats = {}
@@ -297,6 +311,15 @@ def export_to_excel(completed_tests):
                 test_stats[test_title]['correct'] += 1
             else:
                 test_stats[test_title]['incorrect'] += 1
+            
+            # Accumulate subject statistics
+            if test_title not in subject_stats:
+                subject_stats[test_title] = {'correct': 0, 'incorrect': 0, 'total': 0}
+            subject_stats[test_title]['total'] += 1
+            if has_correct:
+                subject_stats[test_title]['correct'] += 1
+            else:
+                subject_stats[test_title]['incorrect'] += 1
         
         for test_name, stats in test_stats.items():
             percentage = round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
@@ -307,6 +330,37 @@ def export_to_excel(completed_tests):
             test_worksheet.write(row, 4, stats['total'])
             test_worksheet.write(row, 5, percentage)
             row += 1
+
+    # Third worksheet - Subject summary statistics
+    summary_worksheet = workbook.add_worksheet('Статистика по предметам')
+    summary_headers = [
+        'Предмет',
+        'Всего правильных ответов',
+        'Всего неправильных ответов',
+        'Всего вопросов',
+        'Общий результат (%)',
+        'Количество тестов'
+    ]
+    
+    # Set column widths for better readability
+    summary_worksheet.set_column(0, 0, 30)  # Subject name column
+    summary_worksheet.set_column(1, 5, 20)  # Other columns
+    
+    # Write headers
+    for col, header in enumerate(summary_headers):
+        summary_worksheet.write(0, col, header, header_format)
+    
+    # Write subject summary data
+    row = 1
+    for subject, stats in subject_stats.items():
+        percentage = round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
+        summary_worksheet.write(row, 0, subject)
+        summary_worksheet.write(row, 1, stats['correct'])
+        summary_worksheet.write(row, 2, stats['incorrect'])
+        summary_worksheet.write(row, 3, stats['total'])
+        summary_worksheet.write(row, 4, percentage)
+        summary_worksheet.write(row, 5, len([t for t in completed_tests.iterator() if any(q.test.title == subject for q in t.completed_questions.all())]))
+        row += 1
 
     workbook.close()
     output.seek(0)
