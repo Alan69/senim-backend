@@ -229,26 +229,53 @@ def export_to_excel(completed_tests):
         'bg_color': '#f0f0f0'
     })
     
-    # First worksheet - Overall statistics
+    # First, collect all unique test names and prepare column structure
+    all_tests = set()
+    for completed_test in completed_tests.iterator():
+        for question in completed_test.completed_questions.all():
+            all_tests.add(question.test.title)
+    
+    all_tests = sorted(list(all_tests))  # Sort test names alphabetically
+    
+    # Create worksheet
     worksheet = workbook.add_worksheet('Общая статистика')
-
-    # Add headers in Russian
-    headers = [
-        'Пользователь', 'Регион', 'Школа', 'Дата завершения',
-        'Тесты (правильные/неправильные)', 'Всего вопросов', 'Результат (%)'
+    
+    # Define base headers
+    base_headers = [
+        'Пользователь', 'Регион', 'Школа', 'Дата завершения'
     ]
+    
+    # Create dynamic headers for each test
+    test_headers = []
+    for test_name in all_tests:
+        test_headers.append(test_name)
+    
+    # Add total columns
+    final_headers = [
+        'Всего правильных', 'Всего неправильных', 'Всего вопросов', 'Результат (%)'
+    ]
+    
+    # Combine all headers
+    headers = base_headers + test_headers + final_headers
     
     # Set column widths for better readability
     worksheet.set_column(0, 0, 30)  # User name
     worksheet.set_column(1, 1, 20)  # Region
     worksheet.set_column(2, 2, 20)  # School
     worksheet.set_column(3, 3, 20)  # Date
-    worksheet.set_column(4, 4, 60)  # Test details
-    worksheet.set_column(5, 6, 15)  # Other columns
     
+    # Set width for test columns
+    for i in range(4, 4 + len(all_tests)):
+        worksheet.set_column(i, i, 25)
+    
+    # Set width for total columns
+    for i in range(4 + len(all_tests), len(headers)):
+        worksheet.set_column(i, i, 15)
+    
+    # Write headers
     for col, header in enumerate(headers):
         worksheet.write(0, col, header, header_format)
-
+    
     # Process and write data in chunks
     row = 1
     for completed_test in completed_tests.iterator():
@@ -257,7 +284,7 @@ def export_to_excel(completed_tests):
         
         if not completed_questions:  # Skip if no questions
             continue
-            
+        
         # Calculate statistics per test
         test_stats = {}
         total_correct = 0
@@ -275,31 +302,36 @@ def export_to_excel(completed_tests):
             else:
                 test_stats[test_title]['wrong'] += 1
                 total_wrong += 1
-
-        # Format test statistics
-        test_details = []
-        for test_name, stats in test_stats.items():
-            test_details.append(
-                f"{test_name} ({stats['correct']} правильных, {stats['wrong']} неправильных)"
-            )
-        test_details_str = "; ".join(test_details)
-
-        total_questions = total_correct + total_wrong
-        score_percentage = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0
-
-        # Write to worksheet
+        
+        # Write base data
         worksheet.write(row, 0, f"{completed_test.user.first_name} {completed_test.user.last_name}")
         worksheet.write(row, 1, str(completed_test.user.region))
         worksheet.write(row, 2, completed_test.user.school)
         worksheet.write(row, 3, completed_test.completed_date.strftime('%Y-%m-%d %H:%M'))
-        worksheet.write(row, 4, test_details_str)
-        worksheet.write(row, 5, total_questions)
-        worksheet.write(row, 6, score_percentage)
+        
+        # Write test-specific data
+        for i, test_name in enumerate(all_tests):
+            col = 4 + i
+            if test_name in test_stats:
+                stats = test_stats[test_name]
+                worksheet.write(row, col, f"{stats['correct']} правильных, {stats['wrong']} неправильных")
+            else:
+                worksheet.write(row, col, "")
+        
+        # Write total statistics
+        total_questions = total_correct + total_wrong
+        score_percentage = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0
+        
+        worksheet.write(row, 4 + len(all_tests), total_correct)
+        worksheet.write(row, 5 + len(all_tests), total_wrong)
+        worksheet.write(row, 6 + len(all_tests), total_questions)
+        worksheet.write(row, 7 + len(all_tests), score_percentage)
+        
         row += 1
-
+    
     workbook.close()
     output.seek(0)
-
+    
     response = HttpResponse(
         output.read(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
