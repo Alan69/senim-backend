@@ -234,16 +234,17 @@ def export_to_excel(completed_tests):
 
     # Add headers in Russian
     headers = [
-        'Пользователь', 'Регион', 'Школа', 'Тест', 'Дата завершения',
-        'Правильные ответы', 'Неправильные ответы', 'Всего вопросов', 'Результат (%)'
+        'Пользователь', 'Регион', 'Школа', 'Дата завершения',
+        'Тесты (правильные/неправильные)', 'Всего вопросов', 'Результат (%)'
     ]
     
     # Set column widths for better readability
     worksheet.set_column(0, 0, 30)  # User name
     worksheet.set_column(1, 1, 20)  # Region
     worksheet.set_column(2, 2, 20)  # School
-    worksheet.set_column(3, 3, 30)  # Test name
-    worksheet.set_column(4, 8, 15)  # Other columns
+    worksheet.set_column(3, 3, 20)  # Date
+    worksheet.set_column(4, 4, 60)  # Test details
+    worksheet.set_column(5, 6, 15)  # Other columns
     
     for col, header in enumerate(headers):
         worksheet.write(0, col, header, header_format)
@@ -257,33 +258,43 @@ def export_to_excel(completed_tests):
         if not completed_questions:  # Skip if no questions
             continue
             
-        # Get test name from the first question
-        test_name = completed_questions[0].test.title if completed_questions else ""
-        
-        # Calculate statistics
-        correct_answers = 0
-        wrong_answers = 0
+        # Calculate statistics per test
+        test_stats = {}
+        total_correct = 0
+        total_wrong = 0
         
         for question in completed_questions:
+            test_title = question.test.title
+            if test_title not in test_stats:
+                test_stats[test_title] = {'correct': 0, 'wrong': 0}
+            
             has_correct = any(option.is_correct for option in question.selected_option.all())
             if has_correct:
-                correct_answers += 1
+                test_stats[test_title]['correct'] += 1
+                total_correct += 1
             else:
-                wrong_answers += 1
+                test_stats[test_title]['wrong'] += 1
+                total_wrong += 1
 
-        total_questions = correct_answers + wrong_answers
-        score_percentage = round((correct_answers / total_questions) * 100, 2) if total_questions > 0 else 0
+        # Format test statistics
+        test_details = []
+        for test_name, stats in test_stats.items():
+            test_details.append(
+                f"{test_name} ({stats['correct']} правильных, {stats['wrong']} неправильных)"
+            )
+        test_details_str = "; ".join(test_details)
+
+        total_questions = total_correct + total_wrong
+        score_percentage = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0
 
         # Write to worksheet
         worksheet.write(row, 0, f"{completed_test.user.first_name} {completed_test.user.last_name}")
         worksheet.write(row, 1, str(completed_test.user.region))
         worksheet.write(row, 2, completed_test.user.school)
-        worksheet.write(row, 3, test_name)
-        worksheet.write(row, 4, completed_test.completed_date.strftime('%Y-%m-%d %H:%M'))
-        worksheet.write(row, 5, correct_answers)
-        worksheet.write(row, 6, wrong_answers)
-        worksheet.write(row, 7, total_questions)
-        worksheet.write(row, 8, score_percentage)
+        worksheet.write(row, 3, completed_test.completed_date.strftime('%Y-%m-%d %H:%M'))
+        worksheet.write(row, 4, test_details_str)
+        worksheet.write(row, 5, total_questions)
+        worksheet.write(row, 6, score_percentage)
         row += 1
 
     workbook.close()
