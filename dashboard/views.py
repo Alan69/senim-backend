@@ -235,8 +235,7 @@ def export_to_excel(completed_tests):
     # Define base headers
     base_headers = [
         'Пользователь', 'Регион', 'Школа', 'Дата завершения',
-        'Тест', 'Правильных', 'Неправильных', 'Всего вопросов', 'Результат (%)',
-        'Всего правильных', 'Всего неправильных', 'Всего вопросов', 'Общий результат (%)'
+        'Тест', 'Правильных', 'Неправильных', 'Всего вопросов', 'Результат (%)'
     ]
     
     # Set column widths for better readability
@@ -245,7 +244,7 @@ def export_to_excel(completed_tests):
     worksheet.set_column(2, 2, 20)  # School
     worksheet.set_column(3, 3, 20)  # Date
     worksheet.set_column(4, 4, 30)  # Test name
-    worksheet.set_column(5, 12, 15)  # Other columns
+    worksheet.set_column(5, 8, 15)  # Other columns
     
     # Write headers
     for col, header in enumerate(base_headers):
@@ -253,85 +252,86 @@ def export_to_excel(completed_tests):
     
     # Process and write data in chunks
     row = 1
+    
+    # Limit the number of records to process to avoid timeout
+    max_records = 1000
+    record_count = 0
+    
     for completed_test in completed_tests.iterator():
         try:
-            # Get all completed questions for this test in one query
-            completed_questions = list(completed_test.completed_questions.all().select_related('test'))
+            if record_count >= max_records:
+                break
+                
+            record_count += 1
             
-            if not completed_questions:  # Skip if no questions
-                continue
-            
-            # Group questions by test
-            test_stats = {}
-            total_correct = 0
-            total_wrong = 0
-            
-            for question in completed_questions:
-                try:
-                    # Get test ID and title safely
-                    test_id = question.test_id
-                    test_title = question.test.title if hasattr(question.test, 'title') else f"Test {test_id}"
-                    
-                    # Initialize test stats if not already present
-                    if test_id not in test_stats:
-                        test_stats[test_id] = {
-                            'title': test_title,
-                            'correct': 0,
-                            'wrong': 0,
-                            'total': 0
-                        }
-                    
-                    # Check if any selected option is correct
-                    selected_options = list(question.selected_option.all())
-                    has_correct = any(option.is_correct for option in selected_options)
-                    
-                    # Update statistics
-                    if has_correct:
-                        test_stats[test_id]['correct'] += 1
-                        total_correct += 1
-                    else:
-                        test_stats[test_id]['wrong'] += 1
-                        total_wrong += 1
-                    
-                    test_stats[test_id]['total'] += 1
-                    
-                except Exception as e:
-                    print(f"Error processing question {question.id}: {str(e)}")
-                    continue
-            
-            # Calculate totals
-            total_questions = total_correct + total_wrong
-            overall_percentage = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0
-            
-            # Write one row per test for this user
+            # Get user info once
             user_name = f"{completed_test.user.first_name} {completed_test.user.last_name}"
             region = str(completed_test.user.region)
             school = completed_test.user.school
             date = completed_test.completed_date.strftime('%Y-%m-%d %H:%M')
             
-            # Sort tests by title for consistent ordering
-            sorted_tests = sorted(test_stats.values(), key=lambda x: x['title'])
+            # Get all tests for this completed test
+            test_ids = completed_test.tests.values_list('id', 'title')
             
-            for test_stat in sorted_tests:
-                # Calculate test-specific percentage
-                test_percentage = round((test_stat['correct'] / test_stat['total']) * 100, 2) if test_stat['total'] > 0 else 0
+            # Create a dictionary to store test statistics
+            test_stats = {}
+            for test_id, test_title in test_ids:
+                test_stats[test_id] = {
+                    'title': test_title,
+                    'correct': 0,
+                    'wrong': 0,
+                    'total': 0
+                }
+            
+            # Get completed questions with their test IDs
+            from django.db import connection
+            with connection.cursor() as cursor:
+                # Execute a raw SQL query to get the correct/incorrect counts by test
+                cursor.execute("""
+                    SELECT 
+                        cq.test_id, 
+                        COUNT(CASE WHEN o.is_correct THEN 1 END) as correct_count,
+                        COUNT(CASE WHEN NOT o.is_correct THEN 1 END) as wrong_count,
+                        COUNT(cq.id) as total_count
+                    FROM 
+                        test_logic_completedquestion cq
+                    JOIN 
+                        test_logic_completedquestion_selected_option cqso ON cq.id = cqso.completedquestion_id
+                    JOIN 
+                        test_logic_option o ON cqso.option_id = o.id
+                    WHERE 
+                        cq.completed_test_id = %s
+                    GROUP BY 
+                        cq.test_id
+                """, [str(completed_test.id)])
                 
-                # Write data
-                worksheet.write(row, 0, user_name)
-                worksheet.write(row, 1, region)
-                worksheet.write(row, 2, school)
-                worksheet.write(row, 3, date)
-                worksheet.write(row, 4, test_stat['title'])
-                worksheet.write(row, 5, test_stat['correct'])
-                worksheet.write(row, 6, test_stat['wrong'])
-                worksheet.write(row, 7, test_stat['total'])
-                worksheet.write(row, 8, test_percentage)
-                worksheet.write(row, 9, total_correct)
-                worksheet.write(row, 10, total_wrong)
-                worksheet.write(row, 11, total_questions)
-                worksheet.write(row, 12, overall_percentage)
-                
-                row += 1
+                results = cursor.fetchall()
+            
+            # Process the results
+            for test_id, correct_count, wrong_count, total_count in results:
+                if test_id in test_stats:
+                    test_stats[test_id]['correct'] = correct_count
+                    test_stats[test_id]['wrong'] = wrong_count
+                    test_stats[test_id]['total'] = total_count
+            
+            # Write one row per test for this user
+            for test_id, stats in test_stats.items():
+                if stats['total'] > 0:  # Only write rows for tests with questions
+                    # Calculate test-specific percentage
+                    test_percentage = round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
+                    
+                    # Write data
+                    worksheet.write(row, 0, user_name)
+                    worksheet.write(row, 1, region)
+                    worksheet.write(row, 2, school)
+                    worksheet.write(row, 3, date)
+                    worksheet.write(row, 4, stats['title'])
+                    worksheet.write(row, 5, stats['correct'])
+                    worksheet.write(row, 6, stats['wrong'])
+                    worksheet.write(row, 7, stats['total'])
+                    worksheet.write(row, 8, test_percentage)
+                    
+                    row += 1
                 
         except Exception as e:
             # Log the error but continue processing other records
