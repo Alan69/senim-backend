@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from test_logic.models import Test, Result, Option, Product, CompletedTest, CompletedQuestion
+from test_logic.models import Test, Result, Question, Option, Product, CompletedTest, CompletedQuestion
 from django.http import HttpResponse
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment, Border, Side
@@ -439,3 +439,84 @@ def add_balance(request):
     }
     
     return render(request, 'dashboard/add_balance.html', context)
+
+@login_required
+def question_management(request):
+    # Only staff or superusers can manage questions
+    if not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "У вас нет прав для доступа к этой странице.")
+        return redirect('test_list')
+    
+    # Get filter parameters
+    product_id = request.GET.get('product')
+    test_id = request.GET.get('test')
+    search_query = request.GET.get('search')
+    page = request.GET.get('page', 1)
+    
+    # Base queryset with prefetch_related to optimize queries
+    questions = Question.objects.select_related(
+        'test', 
+        'test__product',
+        'source_text'
+    ).prefetch_related(
+        'options'
+    ).order_by('test__title', 'text')
+    
+    # Apply filters
+    if product_id:
+        questions = questions.filter(test__product_id=product_id)
+    
+    if test_id:
+        questions = questions.filter(test_id=test_id)
+    
+    if search_query:
+        questions = questions.filter(
+            Q(text__icontains=search_query) | 
+            Q(text2__icontains=search_query) | 
+            Q(text3__icontains=search_query) |
+            Q(category__icontains=search_query) |
+            Q(theme__icontains=search_query)
+        )
+    
+    # Handle question deletion
+    if request.method == 'POST' and 'delete_question' in request.POST:
+        question_id = request.POST.get('question_id')
+        try:
+            question = Question.objects.get(id=question_id)
+            test_id = question.test.id  # Save test_id for redirect
+            question.delete()
+            messages.success(request, "Вопрос успешно удален.")
+            
+            # Redirect to maintain filters
+            redirect_url = f'/dashboard/questions/?test={test_id}'
+            if product_id:
+                redirect_url += f'&product={product_id}'
+            if search_query:
+                redirect_url += f'&search={search_query}'
+            return redirect(redirect_url)
+        except Question.DoesNotExist:
+            messages.error(request, "Вопрос не найден.")
+    
+    # Paginate the queryset
+    paginator = Paginator(questions, 20)  # 20 questions per page
+    page_obj = paginator.get_page(page)
+    
+    # Get all products and tests for filter dropdowns
+    products = Product.objects.all().order_by('title')
+    
+    # Only get tests related to the selected product if a product is selected
+    if product_id:
+        tests = Test.objects.filter(product_id=product_id).order_by('title')
+    else:
+        tests = Test.objects.all().order_by('title')
+    
+    context = {
+        'page_obj': page_obj,
+        'products': products,
+        'tests': tests,
+        'selected_product': product_id,
+        'selected_test': test_id,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'dashboard/question_management.html', context)

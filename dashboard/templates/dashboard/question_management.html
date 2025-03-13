@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Управление вопросами{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">Управление вопросами</h2>
+
+    {% if messages %}
+    <div class="row">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Фильтры</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="{% url 'question_management' %}" class="row g-3">
+                <div class="col-md-3">
+                    <label for="product" class="form-label">Продукт</label>
+                    <select class="form-select" id="product" name="product" onchange="this.form.submit()">
+                        <option value="">Все продукты</option>
+                        {% for product in products %}
+                        <option value="{{ product.id }}" {% if selected_product == product.id|stringformat:"s" %}selected{% endif %}>
+                            {{ product.title }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="test" class="form-label">Тест</label>
+                    <select class="form-select" id="test" name="test" onchange="this.form.submit()">
+                        <option value="">Все тесты</option>
+                        {% for test in tests %}
+                        <option value="{{ test.id }}" {% if selected_test == test.id|stringformat:"s" %}selected{% endif %}>
+                            {{ test.title }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="search" class="form-label">Поиск</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="search" name="search" 
+                               placeholder="Поиск по тексту вопроса, категории, теме..." 
+                               value="{{ search_query|default:'' }}">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{% url 'question_management' %}" class="btn btn-secondary">Сбросить фильтры</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Questions List -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Вопросы</h5>
+            <span class="badge bg-primary">Всего: {{ page_obj.paginator.count }}</span>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+                {% for question in page_obj %}
+                <div class="card mb-4 question-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Тест: {{ question.test.title }}</h6>
+                            <small class="text-muted">Продукт: {{ question.test.product.title }}</small>
+                        </div>
+                        <div>
+                            <form method="post" action="{% url 'question_management' %}" class="d-inline" 
+                                  onsubmit="return confirm('Вы уверены, что хотите удалить этот вопрос?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="question_id" value="{{ question.id }}">
+                                <button type="submit" name="delete_question" class="btn btn-sm btn-danger">
+                                    <i class="fas fa-trash"></i> Удалить
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6>Вопрос:</h6>
+                            <p>{{ question.text }}</p>
+                            {% if question.text2 %}
+                            <p>{{ question.text2 }}</p>
+                            {% endif %}
+                            {% if question.text3 %}
+                            <p>{{ question.text3 }}</p>
+                            {% endif %}
+                            {% if question.img %}
+                            <div class="mt-2">
+                                <img src="{{ question.img.url }}" alt="Question Image" class="img-fluid" style="max-height: 200px;">
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <h6>Варианты ответов:</h6>
+                            <ul class="list-group">
+                                {% for option in question.options.all %}
+                                <li class="list-group-item {% if option.is_correct %}list-group-item-success{% endif %}">
+                                    {{ option.text }}
+                                    {% if option.is_correct %}
+                                    <span class="badge bg-success float-end">Правильный</span>
+                                    {% endif %}
+                                    {% if option.img %}
+                                    <div class="mt-2">
+                                        <img src="{{ option.img.url }}" alt="Option Image" class="img-fluid" style="max-height: 100px;">
+                                    </div>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Метаданные:</h6>
+                                <table class="table table-sm">
+                                    <tbody>
+                                        {% if question.category %}
+                                        <tr>
+                                            <th>Категория:</th>
+                                            <td>{{ question.category }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if question.theme %}
+                                        <tr>
+                                            <th>Тема:</th>
+                                            <td>{{ question.theme }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if question.level %}
+                                        <tr>
+                                            <th>Уровень:</th>
+                                            <td>{{ question.level }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if question.class_number %}
+                                        <tr>
+                                            <th>Класс:</th>
+                                            <td>{{ question.class_number }}</td>
+                                        </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                {% if question.source_text %}
+                                <h6>Источник:</h6>
+                                <div class="source-text">
+                                    {{ question.source_text.text|linebreaks }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Pagination -->
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if selected_product %}&product={{ selected_product }}{% endif %}{% if selected_test %}&test={{ selected_test }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_product %}&product={{ selected_product }}{% endif %}{% if selected_test %}&test={{ selected_test }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                            <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if selected_product %}&product={{ selected_product }}{% endif %}{% if selected_test %}&test={{ selected_test }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_product %}&product={{ selected_product }}{% endif %}{% if selected_test %}&test={{ selected_test }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if selected_product %}&product={{ selected_product }}{% endif %}{% if selected_test %}&test={{ selected_test }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% else %}
+                <div class="alert alert-info">
+                    Вопросы не найдены. Попробуйте изменить параметры фильтрации.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .question-card {
+        border-left: 4px solid #6c757d;
+    }
+    .source-text {
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %} 
