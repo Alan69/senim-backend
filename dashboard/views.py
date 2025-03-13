@@ -229,105 +229,114 @@ def export_to_excel(completed_tests):
         'bg_color': '#f0f0f0'
     })
     
-    # First, collect all unique test names and prepare column structure
-    all_tests = set()
-    for completed_test in completed_tests.iterator():
-        for question in completed_test.completed_questions.all():
-            all_tests.add(question.test.title)
-    
-    all_tests = sorted(list(all_tests))  # Sort test names alphabetically
-    
-    # Create worksheet
+    # Create worksheet with basic structure first
     worksheet = workbook.add_worksheet('Общая статистика')
     
     # Define base headers
     base_headers = [
-        'Пользователь', 'Регион', 'Школа', 'Дата завершения'
+        'Пользователь', 'Регион', 'Школа', 'Дата завершения',
+        'Тест', 'Правильных', 'Неправильных', 'Всего вопросов', 'Результат (%)',
+        'Всего правильных', 'Всего неправильных', 'Всего вопросов', 'Общий результат (%)'
     ]
-    
-    # Create dynamic headers for each test
-    test_headers = []
-    for test_name in all_tests:
-        test_headers.append(test_name)
-    
-    # Add total columns
-    final_headers = [
-        'Всего правильных', 'Всего неправильных', 'Всего вопросов', 'Результат (%)'
-    ]
-    
-    # Combine all headers
-    headers = base_headers + test_headers + final_headers
     
     # Set column widths for better readability
     worksheet.set_column(0, 0, 30)  # User name
     worksheet.set_column(1, 1, 20)  # Region
     worksheet.set_column(2, 2, 20)  # School
     worksheet.set_column(3, 3, 20)  # Date
-    
-    # Set width for test columns
-    for i in range(4, 4 + len(all_tests)):
-        worksheet.set_column(i, i, 25)
-    
-    # Set width for total columns
-    for i in range(4 + len(all_tests), len(headers)):
-        worksheet.set_column(i, i, 15)
+    worksheet.set_column(4, 4, 30)  # Test name
+    worksheet.set_column(5, 12, 15)  # Other columns
     
     # Write headers
-    for col, header in enumerate(headers):
+    for col, header in enumerate(base_headers):
         worksheet.write(0, col, header, header_format)
     
     # Process and write data in chunks
     row = 1
     for completed_test in completed_tests.iterator():
-        # Get all completed questions for this test in one query
-        completed_questions = list(completed_test.completed_questions.all())
-        
-        if not completed_questions:  # Skip if no questions
-            continue
-        
-        # Calculate statistics per test
-        test_stats = {}
-        total_correct = 0
-        total_wrong = 0
-        
-        for question in completed_questions:
-            test_title = question.test.title
-            if test_title not in test_stats:
-                test_stats[test_title] = {'correct': 0, 'wrong': 0}
+        try:
+            # Get all completed questions for this test in one query
+            completed_questions = list(completed_test.completed_questions.all().select_related('test'))
             
-            has_correct = any(option.is_correct for option in question.selected_option.all())
-            if has_correct:
-                test_stats[test_title]['correct'] += 1
-                total_correct += 1
-            else:
-                test_stats[test_title]['wrong'] += 1
-                total_wrong += 1
-        
-        # Write base data
-        worksheet.write(row, 0, f"{completed_test.user.first_name} {completed_test.user.last_name}")
-        worksheet.write(row, 1, str(completed_test.user.region))
-        worksheet.write(row, 2, completed_test.user.school)
-        worksheet.write(row, 3, completed_test.completed_date.strftime('%Y-%m-%d %H:%M'))
-        
-        # Write test-specific data
-        for i, test_name in enumerate(all_tests):
-            col = 4 + i
-            if test_name in test_stats:
-                stats = test_stats[test_name]
-                worksheet.write(row, col, f"{stats['correct']} правильных, {stats['wrong']} неправильных")
-            else:
-                worksheet.write(row, col, "")
-        
-        # Write total statistics
-        total_questions = total_correct + total_wrong
-        score_percentage = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0
-        
-        worksheet.write(row, 4 + len(all_tests), total_correct)
-        worksheet.write(row, 5 + len(all_tests), total_wrong)
-        worksheet.write(row, 6 + len(all_tests), total_questions)
-        worksheet.write(row, 7 + len(all_tests), score_percentage)
-        
-        row += 1
+            if not completed_questions:  # Skip if no questions
+                continue
+            
+            # Group questions by test
+            test_stats = {}
+            total_correct = 0
+            total_wrong = 0
+            
+            for question in completed_questions:
+                try:
+                    # Get test ID and title safely
+                    test_id = question.test_id
+                    test_title = question.test.title if hasattr(question.test, 'title') else f"Test {test_id}"
+                    
+                    # Initialize test stats if not already present
+                    if test_id not in test_stats:
+                        test_stats[test_id] = {
+                            'title': test_title,
+                            'correct': 0,
+                            'wrong': 0,
+                            'total': 0
+                        }
+                    
+                    # Check if any selected option is correct
+                    selected_options = list(question.selected_option.all())
+                    has_correct = any(option.is_correct for option in selected_options)
+                    
+                    # Update statistics
+                    if has_correct:
+                        test_stats[test_id]['correct'] += 1
+                        total_correct += 1
+                    else:
+                        test_stats[test_id]['wrong'] += 1
+                        total_wrong += 1
+                    
+                    test_stats[test_id]['total'] += 1
+                    
+                except Exception as e:
+                    print(f"Error processing question {question.id}: {str(e)}")
+                    continue
+            
+            # Calculate totals
+            total_questions = total_correct + total_wrong
+            overall_percentage = round((total_correct / total_questions) * 100, 2) if total_questions > 0 else 0
+            
+            # Write one row per test for this user
+            user_name = f"{completed_test.user.first_name} {completed_test.user.last_name}"
+            region = str(completed_test.user.region)
+            school = completed_test.user.school
+            date = completed_test.completed_date.strftime('%Y-%m-%d %H:%M')
+            
+            # Sort tests by title for consistent ordering
+            sorted_tests = sorted(test_stats.values(), key=lambda x: x['title'])
+            
+            for test_stat in sorted_tests:
+                # Calculate test-specific percentage
+                test_percentage = round((test_stat['correct'] / test_stat['total']) * 100, 2) if test_stat['total'] > 0 else 0
+                
+                # Write data
+                worksheet.write(row, 0, user_name)
+                worksheet.write(row, 1, region)
+                worksheet.write(row, 2, school)
+                worksheet.write(row, 3, date)
+                worksheet.write(row, 4, test_stat['title'])
+                worksheet.write(row, 5, test_stat['correct'])
+                worksheet.write(row, 6, test_stat['wrong'])
+                worksheet.write(row, 7, test_stat['total'])
+                worksheet.write(row, 8, test_percentage)
+                worksheet.write(row, 9, total_correct)
+                worksheet.write(row, 10, total_wrong)
+                worksheet.write(row, 11, total_questions)
+                worksheet.write(row, 12, overall_percentage)
+                
+                row += 1
+                
+        except Exception as e:
+            # Log the error but continue processing other records
+            print(f"Error processing completed test {completed_test.id}: {str(e)}")
+            continue
     
     workbook.close()
     output.seek(0)
