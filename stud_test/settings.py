@@ -253,7 +253,7 @@ STATICFILES_DIRS=[
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-MEDIA_ROOT = BASE_DIR / 'media' # media directory in the root directory
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # media directory in the root directory
 MEDIA_URL = 'https://api.sapatest.com/media/'
 
 # Default primary key field type
