@@ -10,6 +10,20 @@
     
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- MathJax Configuration -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)']],
+                displayMath: [['\\[', '\\]']],
+                processEscapes: true
+            }
+        };
+    </script>
+    <!-- MathJax Library -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -127,12 +141,12 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <h6>Вопрос:</h6>
-                            <p>{{ question.text }}</p>
+                            <p class="math-text">{{ question.text|safe }}</p>
                             {% if question.text2 %}
-                            <p>{{ question.text2 }}</p>
+                            <p class="math-text">{{ question.text2|safe }}</p>
                             {% endif %}
                             {% if question.text3 %}
-                            <p>{{ question.text3 }}</p>
+                            <p class="math-text">{{ question.text3|safe }}</p>
                             {% endif %}
                             {% if question.img %}
                             <div class="mt-2">
@@ -146,7 +160,7 @@
                             <ul class="list-group">
                                 {% for option in question.options.all %}
                                 <li class="list-group-item {% if option.is_correct %}list-group-item-success{% endif %}">
-                                    {{ option.text }}
+                                    <span class="math-text">{{ option.text|safe }}</span>
                                     {% if option.is_correct %}
                                     <span class="badge bg-success float-end">Правильный</span>
                                     {% endif %}
@@ -264,6 +278,15 @@
         padding: 10px;
         background-color: #f8f9fa;
         border-radius: 4px;
+    }
+    .math-text {
+        line-height: 2;  /* Increase line height for better formula readability */
+    }
+    /* Ensure MathJax formulas don't overflow */
+    .mjx-chtml {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
     }
 </style>
 <!-- JavaScript -->
