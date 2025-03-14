@@ -454,7 +454,8 @@ def question_management(request):
     page = request.GET.get('page', 1)
     
     # Base queryset with prefetch_related to optimize queries
-    questions = Question.objects.select_related(
+    # Only show questions where question_usage is True
+    questions = Question.objects.filter(question_usage=True).select_related(
         'test', 
         'test__product',
         'source_text'
