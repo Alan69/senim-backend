@@ -49,6 +49,13 @@ class AddBalanceForm(forms.Form):
         widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
     )
     
+    set_to_zero = forms.BooleanField(
+        required=False,
+        initial=False,
+        label='Обнулить баланс',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+    
     def clean(self):
         cleaned_data = super().clean()
         filter_type = cleaned_data.get('filter_type')

@@ -102,6 +102,11 @@
                                 {% endif %}
                             </div>
                             
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="{{ form.set_to_zero.id_for_label }}" name="{{ form.set_to_zero.html_name }}">
+                                <label class="form-check-label" for="{{ form.set_to_zero.id_for_label }}">Обнулить баланс</label>
+                            </div>
+                            
                             <button type="submit" class="btn btn-primary">Добавить баланс</button>
                             <a href="{% url 'test_statistics' %}" class="btn btn-secondary">Вернуться на панель управления</a>
                         </form>

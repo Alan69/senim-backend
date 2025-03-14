@@ -350,7 +350,6 @@ def export_to_excel(completed_tests):
 
 @login_required
 def add_balance(request):
-    # Only staff, superusers, or principals can add balance
     if not (request.user.is_staff or request.user.is_superuser or request.user.is_principal):
         messages.error(request, "У вас нет прав для доступа к этой странице.")
         return redirect('test_statistics')
@@ -360,53 +359,82 @@ def add_balance(request):
     if request.method == 'POST' and form.is_valid():
         filter_type = form.cleaned_data['filter_type']
         amount = form.cleaned_data['amount']
+        set_to_zero = form.cleaned_data.get('set_to_zero', False)  # New field
         users_updated = 0
         
         try:
             if filter_type == 'all':
-                # Add balance only to users with zero balance
-                users = User.objects.filter(is_active=True, balance=0)
+                users = User.objects.filter(is_active=True)
+                if set_to_zero:
+                    users = users.filter(balance__gt=0)  # Only reset non-zero balances
+                else:
+                    users = users.filter(balance__lt=1500)
+                
                 for user in users:
-                    user.balance += amount
+                    if set_to_zero:
+                        user.balance = 0
+                    else:
+                        user.balance += amount
                     user.save()
                     users_updated += 1
                 
             elif filter_type == 'region':
-                # Add balance to users in a specific region with zero balance
                 region = form.cleaned_data['region']
-                users = User.objects.filter(region=region, is_active=True, balance=0)
+                users = User.objects.filter(region=region, is_active=True)
+                if set_to_zero:
+                    users = users.filter(balance__gt=0)
+                else:
+                    users = users.filter(balance__lt=1500)
+                
                 for user in users:
-                    user.balance += amount
+                    if set_to_zero:
+                        user.balance = 0
+                    else:
+                        user.balance += amount
                     user.save()
                     users_updated += 1
                 
             elif filter_type == 'school':
-                # Add balance to users in a specific school with zero balance
                 school = form.cleaned_data['school']
-                users = User.objects.filter(school__iexact=school, is_active=True, balance=0)
+                users = User.objects.filter(school__iexact=school, is_active=True)
+                if set_to_zero:
+                    users = users.filter(balance__gt=0)
+                else:
+                    users = users.filter(balance__lt=1500)
+                
                 for user in users:
-                    user.balance += amount
+                    if set_to_zero:
+                        user.balance = 0
+                    else:
+                        user.balance += amount
                     user.save()
                     users_updated += 1
                 
             elif filter_type == 'specific':
-                # Add balance to a specific user only if they have zero balance
                 username = form.cleaned_data['username']
                 user = User.objects.get(username=username)
-                if user.balance == 0:
+                if set_to_zero:
+                    if user.balance > 0:
+                        user.balance = 0
+                        user.save()
+                        users_updated = 1
+                elif user.balance < 1500:
                     user.balance += amount
                     user.save()
                     users_updated = 1
             
-            messages.success(request, f"Успешно добавлено {amount} на баланс {users_updated} пользователя(ей) с нулевым балансом.")
+            if set_to_zero:
+                messages.success(request, f"Баланс успешно обнулен для {users_updated} пользователя(ей).")
+            else:
+                messages.success(request, f"Успешно добавлено {amount} на баланс {users_updated} пользователя(ей) с балансом меньше 1500.")
             return redirect('add_balance2')
             
         except Exception as e:
             messages.error(request, f"Произошла ошибка: {str(e)}")
-    
-    # Get some statistics for the template
+
+    # Update statistics to show users with balance < 1500
     total_users = User.objects.filter(is_active=True).count()
-    zero_balance_users = User.objects.filter(is_active=True, balance=0).count()
+    low_balance_users = User.objects.filter(is_active=True, balance__lt=1500).count()
     regions = Region.objects.all()
     region_stats = []
     
@@ -414,26 +442,26 @@ def add_balance(request):
         region_stats.append({
             'name': region.name,
             'user_count': User.objects.filter(region=region, is_active=True).count(),
-            'zero_balance_count': User.objects.filter(region=region, is_active=True, balance=0).count()
+            'low_balance_count': User.objects.filter(region=region, is_active=True, balance__lt=1500).count()
         })
     
-    # Get unique schools and their user counts
+    # Update school statistics
     schools = User.objects.filter(is_active=True).values('school').distinct()
     school_stats = []
     
     for school_dict in schools:
         school = school_dict.get('school')
-        if school:  # Skip None values
+        if school:
             school_stats.append({
                 'name': school,
                 'user_count': User.objects.filter(school=school, is_active=True).count(),
-                'zero_balance_count': User.objects.filter(school=school, is_active=True, balance=0).count()
+                'low_balance_count': User.objects.filter(school=school, is_active=True, balance__lt=1500).count()
             })
     
     context = {
         'form': form,
         'total_users': total_users,
-        'zero_balance_users': zero_balance_users,
+        'low_balance_users': low_balance_users,
         'region_stats': region_stats,
         'school_stats': school_stats
     }
