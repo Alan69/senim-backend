@@ -293,14 +293,20 @@ def complete_test_view(request):
     # Calculate time spent
     test_finish_test_time = now()
     test_start_time = user.test_start_time
-    time_spent = (test_finish_test_time - test_start_time).total_seconds()
+    
+    # Handle case where test_start_time is None
+    if test_start_time is None:
+        logger.warning(f"test_start_time is None for user {user.username}, using current time")
+        time_spent = 0  # Default to 0 if we can't calculate actual time
+    else:
+        time_spent = (test_finish_test_time - test_start_time).total_seconds()
 
     # Create the CompletedTest instance
     completed_test = CompletedTest.objects.create(
         user=user,
         product=product,
         completed_date=test_finish_test_time,
-        start_test_time=test_start_time,
+        start_test_time=test_start_time or test_finish_test_time,  # Use finish time as start time if start time is None
         time_spent=time_spent
     )
 
