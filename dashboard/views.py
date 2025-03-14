@@ -507,9 +507,9 @@ def question_management(request):
     
     # Only get tests related to the selected product if a product is selected
     if product_id:
-        tests = Test.objects.filter(product_id=product_id).order_by('title')
+        tests = Test.objects.filter(product_id=product_id).order_by('title', 'grade')
     else:
-        tests = Test.objects.all().order_by('title')
+        tests = Test.objects.all().order_by('title', 'grade')
     
     context = {
         'page_obj': page_obj,

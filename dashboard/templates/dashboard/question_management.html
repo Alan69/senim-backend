@@ -75,7 +75,7 @@
                         <option value="">Все тесты</option>
                         {% for test in tests %}
                         <option value="{{ test.id }}" {% if selected_test == test.id|stringformat:"s" %}selected{% endif %}>
-                            {{ test.title }}
+                            {{ test.title }}{% if test.grade %} ({{ test.grade }} класс){% endif %}
                         </option>
                         {% endfor %}
                     </select>
@@ -110,7 +110,7 @@
                 <div class="card mb-4 question-card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="mb-0">Тест: {{ question.test.title }}</h6>
+                            <h6 class="mb-0">Тест: {{ question.test.title }}{% if question.test.grade %} ({{ question.test.grade }} класс){% endif %}</h6>
                             <small class="text-muted">Продукт: {{ question.test.product.title }}</small>
                         </div>
                         <div>
