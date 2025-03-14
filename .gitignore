@@ -26,5 +26,5 @@ nginxlocal.conf
 /app
 /static
 nohup.out
-/media/*
+# /media/*
 *.session
