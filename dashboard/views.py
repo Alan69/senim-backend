@@ -445,7 +445,7 @@ def question_management(request):
     # Only staff or superusers can manage questions
     if not (request.user.is_staff or request.user.is_superuser):
         messages.error(request, "У вас нет прав для доступа к этой странице.")
-        return redirect('test_list')
+        return redirect('test_statistics')
     
     # Get filter parameters
     product_id = request.GET.get('product')
