@@ -117,6 +117,9 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .checkbox-container {
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -152,6 +155,10 @@
                 <form method="POST" action="{% url 'delete-empty-options' %}" onsubmit="return confirm('Are you sure you want to delete all empty options for this product?');">
                     {% csrf_token %}
                     <input type="hidden" name="product_id" value="{{ product_id }}">
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="delete_all_questions" name="delete_questions" value="true">
+                        <label for="delete_all_questions">Also delete questions</label>
+                    </div>
                     <button type="submit" class="run-command">Delete All Empty Options</button>
                 </form>
             </div>
@@ -182,6 +189,10 @@
                         {% csrf_token %}
                         <input type="hidden" name="product_id" value="{{ product_id }}">
                         <input type="hidden" name="question_id" value="{{ item.question.id }}">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="delete_question_{{ item.question.id }}" name="delete_questions" value="true">
+                            <label for="delete_question_{{ item.question.id }}">Also delete question</label>
+                        </div>
                         <button type="submit" class="delete-btn">Delete Empty Options for this Question</button>
                     </form>
                 </div>
