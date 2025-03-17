@@ -566,22 +566,26 @@ def reset_test_status(request):
         if 'preview' in request.POST and form.is_valid():
             filter_type = form.cleaned_data['filter_type']
             
+            # Use select_related to optimize region fetching in one query
+            base_query = User.objects.filter(test_is_started=True).select_related('region')
+            
             # Get users based on filter
             if filter_type == 'all':
-                affected_users = User.objects.filter(test_is_started=True)
+                # Limit to a reasonable number for preview to avoid memory issues
+                affected_users = base_query[:500]
                 
             elif filter_type == 'region':
                 region = form.cleaned_data['region']
-                affected_users = User.objects.filter(region=region, test_is_started=True)
+                affected_users = base_query.filter(region=region)[:500]
                 
             elif filter_type == 'school':
                 school = form.cleaned_data['school']
-                affected_users = User.objects.filter(school__iexact=school, test_is_started=True)
+                affected_users = base_query.filter(school__iexact=school)[:500]
                 
             elif filter_type == 'specific':
                 username = form.cleaned_data['username']
                 try:
-                    user = User.objects.get(username=username, test_is_started=True)
+                    user = base_query.get(username=username)
                     affected_users = [user]
                 except User.DoesNotExist:
                     affected_users = []
@@ -594,33 +598,42 @@ def reset_test_status(request):
             users_updated = 0
             
             try:
+                # Use update() method directly on querysets for bulk operations
                 if filter_type == 'all':
-                    users = User.objects.filter(test_is_started=True)
-                    users_count = users.count()
-                    users.update(test_is_started=False, test_start_time=None)
-                    users_updated = users_count
+                    users_updated = User.objects.filter(test_is_started=True).update(
+                        test_is_started=False, 
+                        test_start_time=None
+                    )
                     
                 elif filter_type == 'region':
                     region = form.cleaned_data['region']
-                    users = User.objects.filter(region=region, test_is_started=True)
-                    users_count = users.count()
-                    users.update(test_is_started=False, test_start_time=None)
-                    users_updated = users_count
+                    users_updated = User.objects.filter(
+                        region=region, 
+                        test_is_started=True
+                    ).update(
+                        test_is_started=False, 
+                        test_start_time=None
+                    )
                     
                 elif filter_type == 'school':
                     school = form.cleaned_data['school']
-                    users = User.objects.filter(school__iexact=school, test_is_started=True)
-                    users_count = users.count()
-                    users.update(test_is_started=False, test_start_time=None)
-                    users_updated = users_count
+                    users_updated = User.objects.filter(
+                        school__iexact=school, 
+                        test_is_started=True
+                    ).update(
+                        test_is_started=False, 
+                        test_start_time=None
+                    )
                     
                 elif filter_type == 'specific':
                     username = form.cleaned_data['username']
-                    user = User.objects.get(username=username, test_is_started=True)
-                    user.test_is_started = False
-                    user.test_start_time = None
-                    user.save()
-                    users_updated = 1
+                    users_updated = User.objects.filter(
+                        username=username, 
+                        test_is_started=True
+                    ).update(
+                        test_is_started=False, 
+                        test_start_time=None
+                    )
                 
                 messages.success(request, f"Статус теста успешно сброшен для {users_updated} пользователя(ей).")
                 return redirect('reset_test_status')
@@ -631,30 +644,66 @@ def reset_test_status(request):
             # Exit preview mode after applying changes
             preview_mode = False
     
-    # Statistics for the page
+    # Use aggregation for counting to reduce database queries
+    from django.db.models import Count, Q
+    
+    # Get all statistics in a single query
     total_users = User.objects.count()
     started_test_users = User.objects.filter(test_is_started=True).count()
-    regions = Region.objects.all()
     
-    region_stats = []
-    for region in regions:
-        region_stats.append({
+    # Get region statistics with a single query using annotation
+    regions = Region.objects.annotate(
+        user_count=Count('user'),
+        started_test_count=Count('user', filter=Q(user__test_is_started=True))
+    )
+    
+    region_stats = [
+        {
             'name': region.name,
-            'user_count': User.objects.filter(region=region).count(),
-            'started_test_count': User.objects.filter(region=region, test_is_started=True).count()
-        })
+            'user_count': region.user_count,
+            'started_test_count': region.started_test_count
+        }
+        for region in regions
+    ]
     
-    # School statistics
-    schools = User.objects.values('school').distinct()
+    # School statistics with a more efficient query
     school_stats = []
     
-    for school_dict in schools:
-        school = school_dict.get('school')
-        if school:
+    # Only process schools with active tests to reduce processing
+    schools_with_tests = User.objects.filter(
+        test_is_started=True, 
+        school__isnull=False
+    ).values('school').distinct()
+    
+    if schools_with_tests.exists():
+        # Get all unique schools
+        all_schools = User.objects.exclude(
+            school__isnull=True
+        ).exclude(
+            school=''
+        ).values_list('school', flat=True).distinct()
+        
+        # Use a single query with conditional aggregation
+        from django.db.models import Sum, Case, When, IntegerField
+        
+        school_data = User.objects.filter(
+            school__in=all_schools
+        ).values('school').annotate(
+            user_count=Count('id'),
+            started_test_count=Sum(
+                Case(
+                    When(test_is_started=True, then=1),
+                    default=0,
+                    output_field=IntegerField()
+                )
+            )
+        ).filter(started_test_count__gt=0)  # Only include schools with active tests
+        
+        for school in school_data:
             school_stats.append({
-                'name': school,
-                'user_count': User.objects.filter(school=school).count(),
-                'started_test_count': User.objects.filter(school=school, test_is_started=True).count()
+                'name': school['school'],
+                'user_count': school['user_count'],
+                'started_test_count': school['started_test_count']
             })
     
     context = {
