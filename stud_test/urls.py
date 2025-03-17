@@ -56,6 +56,7 @@ urlpatterns = [
 
     path('admin/', admin.site.urls),
     path('statistics/', include('dashboard.urls')),
+    path('test-logic/', include('test_logic.urls')),
     # path('accounts/', include('accounts.urls')),
     # path('tests/', include('test_logic.urls')),
     path('payments/', include('payments.urls')),

@@ -22,6 +22,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 from decimal import Decimal
 from random import shuffle
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
@@ -496,3 +497,140 @@ def get_all_completed_tests(request):
     # Serialize all CompletedTests
     serializer = CompletedTestSerializer(completed_tests, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+def empty_options_view(request):
+    """View to display questions that have options with empty text."""
+    # Get product ID from query params, default to the specific product ID
+    product_id = request.GET.get('product_id', '4ce7261c-29e8-4514-94c0-68344010c2d9')
+    
+    # Get tests associated with the product
+    tests = Test.objects.filter(product_id=product_id)
+    
+    if not tests.exists():
+        return Response({"error": f"No tests found for Product ID: {product_id}"}, 
+                       status=status.HTTP_404_NOT_FOUND)
+    
+    # Find questions that have options with empty text
+    questions_with_empty_options = Question.objects.filter(
+        test__in=tests,
+        options__text__in=['', ' ']
+    ).distinct()
+    
+    # Also find questions with null text options
+    questions_with_null_options = Question.objects.filter(
+        test__in=tests,
+        options__text__isnull=True
+    ).distinct()
+    
+    # Combine the querysets
+    questions = (questions_with_empty_options | questions_with_null_options).distinct()
+    
+    # Prepare data for the template
+    questions_data = []
+    for question in questions:
+        empty_options = Option.objects.filter(
+            question=question
+        ).filter(
+            Q(text__in=['', ' ']) | Q(text__isnull=True)
+        )
+        
+        questions_data.append({
+            'question': question,
+            'empty_options': empty_options,
+            'test': question.test
+        })
+    
+    # Check if HTML is requested
+    if request.accepted_renderer.format == 'html':
+        from django.shortcuts import render
+        from django.contrib import messages
+        
+        # Add a message if there are no empty options
+        if not questions_data:
+            messages.info(request, f"No questions with empty options found for Product ID: {product_id}")
+        
+        return render(request, 'test_logic/empty_options.html', {
+            'questions_data': questions_data,
+            'product_id': product_id,
+            'tests_count': tests.count(),
+            'questions_count': len(questions_data)
+        })
+    
+    # Otherwise return JSON
+    return Response({
+        'product_id': product_id,
+        'tests_count': tests.count(),
+        'questions_count': len(questions_data),
+        'questions': [
+            {
+                'id': str(q['question'].id),
+                'text': q['question'].text,
+                'test_id': str(q['test'].id),
+                'test_title': q['test'].title,
+                'empty_options': [
+                    {
+                        'id': str(opt.id),
+                        'text': opt.text
+                    } for opt in q['empty_options']
+                ]
+            } for q in questions_data
+        ]
+    })
+
+@api_view(['POST'])
+def delete_empty_options_view(request):
+    """View to delete options with empty text."""
+    product_id = request.POST.get('product_id')
+    question_id = request.POST.get('question_id')  # This will be None if deleting all empty options
+    
+    if not product_id:
+        return Response({"error": "Product ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get tests associated with the product
+    tests = Test.objects.filter(product_id=product_id)
+    
+    if not tests.exists():
+        return Response({"error": f"No tests found for Product ID: {product_id}"}, 
+                       status=status.HTTP_404_NOT_FOUND)
+    
+    # If question_id is provided, only delete empty options for that question
+    if question_id:
+        try:
+            question = Question.objects.get(id=question_id, test__in=tests)
+            empty_options = Option.objects.filter(
+                question=question
+            ).filter(
+                Q(text__in=['', ' ']) | Q(text__isnull=True)
+            )
+            
+            count = empty_options.count()
+            empty_options.delete()
+            
+            # Redirect back to the empty options page with a success message
+            from django.shortcuts import redirect
+            from django.contrib import messages
+            
+            messages.success(request, f"Successfully deleted {count} empty options for question {question_id}")
+            return redirect(f"/api/test-logic/empty-options/?product_id={product_id}")
+            
+        except Question.DoesNotExist:
+            return Response({"error": f"Question with ID {question_id} not found"}, 
+                           status=status.HTTP_404_NOT_FOUND)
+    
+    # Otherwise, delete all empty options for the product
+    empty_options = Option.objects.filter(
+        question__test__in=tests
+    ).filter(
+        Q(text__in=['', ' ']) | Q(text__isnull=True)
+    )
+    
+    count = empty_options.count()
+    empty_options.delete()
+    
+    # Redirect back to the empty options page with a success message
+    from django.shortcuts import redirect
+    from django.contrib import messages
+    
+    messages.success(request, f"Successfully deleted {count} empty options for product {product_id}")
+    return redirect(f"/api/test-logic/empty-options/?product_id={product_id}")
