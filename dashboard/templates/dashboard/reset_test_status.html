@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Добавление баланса</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- MathJax Configuration -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)']],
+                displayMath: [['\\[', '\\]']],
+                processEscapes: true
+            }
+        };
+    </script>
+    <!-- MathJax Library -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            {% comment %} <a class="navbar-brand" href="{% url 'test_statistics' %}">Synaqtest</a> {% endcomment %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'test_statistics' %}">Статистика</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'add_balance2' %}">Добавить баланс</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'question_management' %}">Управление вопросами</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'reset_test_status' %}">Сброс статуса теста</a>
+                    </li>
+                    <li class="nav-item">
+                        {% comment %} <a class="nav-link" href="{% url 'add_students' %}">Добавить студентов</a> {% endcomment %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+<div class="container mt-4">
+    <h2 class="mb-4">Сброс статуса теста</h2>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Сброс статуса теста</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.filter_type.id_for_label }}" class="form-label">Тип фильтра</label>
+                            {{ form.filter_type }}
+                        </div>
+                        
+                        <div class="mb-3 region-field" style="display: none;">
+                            <label for="{{ form.region.id_for_label }}" class="form-label">Регион</label>
+                            {{ form.region }}
+                        </div>
+                        
+                        <div class="mb-3 school-field" style="display: none;">
+                            <label for="{{ form.school.id_for_label }}" class="form-label">Школа</label>
+                            {{ form.school }}
+                        </div>
+                        
+                        <div class="mb-3 username-field" style="display: none;">
+                            <label for="{{ form.username.id_for_label }}" class="form-label">ИИН пользователя</label>
+                            {{ form.username }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" name="preview" class="btn btn-primary">Предпросмотр</button>
+                            <button type="submit" name="apply" class="btn btn-danger">Применить</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Статистика</h5>
+                </div>
+                <div class="card-body">
+                    <p>Всего пользователей: <strong>{{ total_users }}</strong></p>
+                    <p>Пользователей с активным тестом: <strong>{{ started_test_users }}</strong></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            {% if affected_users %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h5>Предпросмотр: Пользователи, которые будут затронуты ({{ affected_users|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ИИН</th>
+                                    <th>Имя</th>
+                                    <th>Фамилия</th>
+                                    <th>Регион</th>
+                                    <th>Школа</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in affected_users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.first_name }}</td>
+                                    <td>{{ user.last_name }}</td>
+                                    <td>{{ user.region }}</td>
+                                    <td>{{ user.school }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">Нет пользователей, соответствующих критериям</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Статистика по регионам</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Регион</th>
+                                    <th>Всего пользователей</th>
+                                    <th>С активным тестом</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for region in region_stats %}
+                                <tr>
+                                    <td>{{ region.name }}</td>
+                                    <td>{{ region.user_count }}</td>
+                                    <td>{{ region.started_test_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Статистика по школам</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Школа</th>
+                                    <th>Всего пользователей</th>
+                                    <th>С активным тестом</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for school in school_stats %}
+                                <tr>
+                                    <td>{{ school.name }}</td>
+                                    <td>{{ school.user_count }}</td>
+                                    <td>{{ school.started_test_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterType = document.getElementById('filter-type');
+        const regionField = document.querySelector('.region-field');
+        const schoolField = document.querySelector('.school-field');
+        const usernameField = document.querySelector('.username-field');
+        
+        function updateFields() {
+            // Hide all fields first
+            regionField.style.display = 'none';
+            schoolField.style.display = 'none';
+            usernameField.style.display = 'none';
+            
+            // Show relevant field based on selection
+            if (filterType.value === 'region') {
+                regionField.style.display = 'block';
+            } else if (filterType.value === 'school') {
+                schoolField.style.display = 'block';
+            } else if (filterType.value === 'specific') {
+                usernameField.style.display = 'block';
+            }
+        }
+        
+        // Initial update
+        updateFields();
+        
+        // Update on change
+        filterType.addEventListener('change', updateFields);
+    });
+</script>
+<!-- JavaScript -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

@@ -15,7 +15,7 @@ from datetime import datetime
 from django.contrib import messages
 from decimal import Decimal
 from accounts.models import User, Region
-from .forms import AddBalanceForm, AddStudentForm
+from .forms import AddBalanceForm, AddStudentForm, ResetTestStatusForm
 
 @login_required
 def test_list(request):
@@ -549,3 +549,122 @@ def question_management(request):
     }
     
     return render(request, 'dashboard/question_management.html', context)
+
+@login_required
+def reset_test_status(request):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.is_principal):
+        messages.error(request, "У вас нет прав для доступа к этой странице.")
+        return redirect('test_statistics')
+    
+    form = ResetTestStatusForm(request.POST or None)
+    
+    # Variables to store users that will be affected
+    affected_users = []
+    preview_mode = True
+    
+    if request.method == 'POST':
+        if 'preview' in request.POST and form.is_valid():
+            filter_type = form.cleaned_data['filter_type']
+            
+            # Get users based on filter
+            if filter_type == 'all':
+                affected_users = User.objects.filter(test_is_started=True)
+                
+            elif filter_type == 'region':
+                region = form.cleaned_data['region']
+                affected_users = User.objects.filter(region=region, test_is_started=True)
+                
+            elif filter_type == 'school':
+                school = form.cleaned_data['school']
+                affected_users = User.objects.filter(school__iexact=school, test_is_started=True)
+                
+            elif filter_type == 'specific':
+                username = form.cleaned_data['username']
+                try:
+                    user = User.objects.get(username=username, test_is_started=True)
+                    affected_users = [user]
+                except User.DoesNotExist:
+                    affected_users = []
+            
+            # Keep in preview mode
+            preview_mode = True
+            
+        elif 'apply' in request.POST and form.is_valid():
+            filter_type = form.cleaned_data['filter_type']
+            users_updated = 0
+            
+            try:
+                if filter_type == 'all':
+                    users = User.objects.filter(test_is_started=True)
+                    users_count = users.count()
+                    users.update(test_is_started=False, test_start_time=None)
+                    users_updated = users_count
+                    
+                elif filter_type == 'region':
+                    region = form.cleaned_data['region']
+                    users = User.objects.filter(region=region, test_is_started=True)
+                    users_count = users.count()
+                    users.update(test_is_started=False, test_start_time=None)
+                    users_updated = users_count
+                    
+                elif filter_type == 'school':
+                    school = form.cleaned_data['school']
+                    users = User.objects.filter(school__iexact=school, test_is_started=True)
+                    users_count = users.count()
+                    users.update(test_is_started=False, test_start_time=None)
+                    users_updated = users_count
+                    
+                elif filter_type == 'specific':
+                    username = form.cleaned_data['username']
+                    user = User.objects.get(username=username, test_is_started=True)
+                    user.test_is_started = False
+                    user.test_start_time = None
+                    user.save()
+                    users_updated = 1
+                
+                messages.success(request, f"Статус теста успешно сброшен для {users_updated} пользователя(ей).")
+                return redirect('reset_test_status')
+                
+            except Exception as e:
+                messages.error(request, f"Произошла ошибка: {str(e)}")
+            
+            # Exit preview mode after applying changes
+            preview_mode = False
+    
+    # Statistics for the page
+    total_users = User.objects.count()
+    started_test_users = User.objects.filter(test_is_started=True).count()
+    regions = Region.objects.all()
+    
+    region_stats = []
+    for region in regions:
+        region_stats.append({
+            'name': region.name,
+            'user_count': User.objects.filter(region=region).count(),
+            'started_test_count': User.objects.filter(region=region, test_is_started=True).count()
+        })
+    
+    # School statistics
+    schools = User.objects.values('school').distinct()
+    school_stats = []
+    
+    for school_dict in schools:
+        school = school_dict.get('school')
+        if school:
+            school_stats.append({
+                'name': school,
+                'user_count': User.objects.filter(school=school).count(),
+                'started_test_count': User.objects.filter(school=school, test_is_started=True).count()
+            })
+    
+    context = {
+        'form': form,
+        'total_users': total_users,
+        'started_test_users': started_test_users,
+        'region_stats': region_stats,
+        'school_stats': school_stats,
+        'affected_users': affected_users,
+        'preview_mode': preview_mode
+    }
+    
+    return render(request, 'dashboard/reset_test_status.html', context)
