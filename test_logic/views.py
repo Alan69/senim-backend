@@ -606,36 +606,40 @@ def delete_empty_options_view(request):
                            status=status.HTTP_404_NOT_FOUND)
     
     # Otherwise, process all questions with empty options for the product
-    # First, identify questions with empty options
-    questions_with_empty_options = Question.objects.filter(
-        test__in=tests,
-        options__text__in=['', ' ']
-    ).distinct()
-    
-    questions_with_null_options = Question.objects.filter(
-        test__in=tests,
-        options__text__isnull=True
-    ).distinct()
-    
-    questions = (questions_with_empty_options | questions_with_null_options).distinct()
-    questions_count = questions.count()
-    
-    # Find all empty options
-    empty_options = Option.objects.filter(
-        question__test__in=tests
-    ).filter(
-        Q(text__in=['', ' ']) | Q(text__isnull=True)
-    )
-    
-    options_count = empty_options.count()
-    
     if delete_questions:
-        # Delete all questions with empty options
-        questions.delete()  # This will cascade delete their options
-        message = f"Successfully deleted {questions_count} questions with {options_count} empty options"
+        # First, get a list of question IDs with empty options
+        questions_with_empty_options = Question.objects.filter(
+            test__in=tests,
+            options__text__in=['', ' ']
+        ).distinct().values_list('id', flat=True)
+        
+        questions_with_null_options = Question.objects.filter(
+            test__in=tests,
+            options__text__isnull=True
+        ).distinct().values_list('id', flat=True)
+        
+        # Combine the IDs
+        question_ids = list(questions_with_empty_options) + list(questions_with_null_options)
+        
+        # Get a count before deletion
+        questions_count = len(set(question_ids))
+        
+        # Delete questions without using distinct()
+        if question_ids:
+            Question.objects.filter(id__in=question_ids).delete()
+            
+        message = f"Successfully deleted {questions_count} questions with empty options"
     else:
-        # Just delete the empty options
+        # Find all empty options without using distinct()
+        empty_options = Option.objects.filter(
+            question__test__in=tests
+        ).filter(
+            Q(text__in=['', ' ']) | Q(text__isnull=True)
+        )
+        
+        options_count = empty_options.count()
         empty_options.delete()
+        
         message = f"Successfully deleted {options_count} empty options for product {product_id}"
     
     # Redirect back to the empty options page with a success message
