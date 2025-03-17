@@ -39,6 +39,12 @@ class CurrentTestSerializer(serializers.ModelSerializer):
     def get_questions(self, obj):
         # Fetch all questions related to the test as a queryset
         all_questions = Question.objects.filter(test=obj)
+        
+        # Check if the user is an admin
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and request.user.is_staff:
+            # For admin users, return all questions without filtering
+            return CurrentQuestionSerializer(all_questions, many=True).data
 
         # If the number of questions is not 40, return a random selection
         if obj.number_of_questions != 40:
