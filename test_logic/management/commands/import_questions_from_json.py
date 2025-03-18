@@ -39,6 +39,18 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"No data found in {json_file}"))
                 return
             
+            # Check if the data is a list or a string
+            if isinstance(data, str):
+                # Try to parse the string as JSON
+                try:
+                    data = json.loads(data)
+                except json.JSONDecodeError:
+                    raise CommandError(f"Invalid JSON format - data is a string: {data[:100]}...")
+            
+            # If data is not a list, wrap it in a list
+            if not isinstance(data, list):
+                data = [data]
+            
             # Statistics
             questions_imported = 0
             questions_skipped = 0
