@@ -20,7 +20,7 @@ class Command(BaseCommand):
                 raise CommandError(f'Product with ID "{product_id}" does not exist')
             
             # Get all tests associated with the product
-            tests = Test.objects.filter(product=product)
+            tests = Test.objects.filter(product=product, grade=9)
             
             if not tests.exists():
                 self.stdout.write(self.style.WARNING(f'No tests found for product "{product.title}"'))
