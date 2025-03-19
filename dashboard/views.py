@@ -1,3 +1,4 @@
+from django.forms import IntegerField
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from test_logic.models import Test, Result, Question, Option, Product, CompletedTest, CompletedQuestion
@@ -445,18 +446,29 @@ def add_balance(request):
             'low_balance_count': User.objects.filter(region=region, is_active=True, balance__lt=1500).count()
         })
     
-    # Update school statistics
-    schools = User.objects.filter(is_active=True).values('school').distinct()
-    school_stats = []
-    
-    for school_dict in schools:
-        school = school_dict.get('school')
-        if school:
-            school_stats.append({
-                'name': school,
-                'user_count': User.objects.filter(school=school, is_active=True).count(),
-                'low_balance_count': User.objects.filter(school=school, is_active=True, balance__lt=1500).count()
-            })
+    # Update school statistics - optimize with annotations and values
+    # Get all schools with counts in a single query
+    school_stats = User.objects.filter(is_active=True, school__isnull=False)\
+        .exclude(school='')\
+        .values('school')\
+        .annotate(
+            user_count=Count('id'),
+            low_balance_count=Count(
+                Case(
+                    When(balance__lt=1500, then=1),
+                    output_field=IntegerField()
+                )
+            )
+        ).order_by('school')
+        
+    # Convert to expected format if needed
+    school_stats = [
+        {
+            'name': school['school'],
+            'user_count': school['user_count'],
+            'low_balance_count': school['low_balance_count']
+        } for school in school_stats
+    ]
     
     context = {
         'form': form,
