@@ -311,3 +311,25 @@ LOGGING = {
         },
     },
 }
+
+# Redis Cache Configuration
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://redis:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+        }
+    }
+}
+
+# Session Configuration - Use Redis for sessions
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
+# Cache timeout settings
+CACHE_TTL = 60 * 15  # 15 minutes default
+
+# Cache key prefix to avoid collisions
+CACHE_KEY_PREFIX = "sapatest"

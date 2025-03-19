@@ -91,6 +91,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = "Пользователи"
+        indexes = [
+            models.Index(fields=['is_active']),
+            models.Index(fields=['balance']),
+            models.Index(fields=['is_active', 'balance']),
+            models.Index(fields=['school']),
+            models.Index(fields=['region', 'is_active']),
+            models.Index(fields=['test_is_started']),
+        ]
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.username})"
