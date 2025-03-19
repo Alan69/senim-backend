@@ -57,15 +57,18 @@ class Command(BaseCommand):
         processed = 0
         start_time = time.time()
         
+        # Get all user IDs first
+        user_ids = list(queryset.values_list('id', flat=True))
+        
         while processed < total_users:
-            # Get the next batch of users
-            batch = queryset.order_by('id')[processed:processed+batch_size]
+            # Get the next batch of user IDs
+            batch_ids = user_ids[processed:processed+batch_size]
             
             # Update in a transaction for data consistency
             with transaction.atomic():
-                # Use F() expression for efficient database update
-                updated = batch.update(balance=F('balance') + amount)
-                processed += updated
+                # Use a new queryset with the batch IDs
+                updated_count = User.objects.filter(id__in=batch_ids).update(balance=F('balance') + amount)
+                processed += len(batch_ids)
             
             # Calculate and display progress
             progress = (processed / total_users) * 100
@@ -90,7 +93,10 @@ class Command(BaseCommand):
                 self.stdout.write(f"Deleted cache key: {key}")
             
             # Also clear pattern-based keys
-            cache.delete_pattern('school_stats:*')
-            self.stdout.write("Cleared school statistics cache")
+            try:
+                cache.delete_pattern('school_stats:*')
+                self.stdout.write("Cleared school statistics cache")
+            except AttributeError:
+                self.stdout.write(self.style.WARNING("delete_pattern not supported by cache backend - skipping pattern clears"))
             
             self.stdout.write(self.style.SUCCESS("Cache entries reset successfully")) 
