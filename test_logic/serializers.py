@@ -5,7 +5,6 @@ from accounts.models import User
 from accounts.serializers import UserSerializer
 from django.db.models import Q
 from django.db.models import Count
-from django.core.cache import cache
 
 # new
 class CurrentOptionSerializer(serializers.ModelSerializer):
@@ -22,22 +21,13 @@ class CurrentQuestionSerializer(serializers.ModelSerializer):
         fields = ['id', 'text', 'text2', 'text3', 'img', 'task_type', 'options', 'source_text']
     
     def get_options(self, obj):
-        # Cache options for each question to avoid repeated DB hits
-        cache_key = f'question_options:{obj.id}'
-        cached_options = cache.get(cache_key)
-        
-        if cached_options:
-            return cached_options
-        
         # Get all options for this question
-        options = list(obj.options.all())
-        shuffle(options)
-        serialized_options = CurrentOptionSerializer(options, many=True).data
-        
-        # Cache for 10 minutes
-        cache.set(cache_key, serialized_options, 60 * 10)
-        
-        return serialized_options
+        options = obj.options.all()
+        # Convert queryset to list and randomize the order
+        options_list = list(options)
+        shuffle(options_list)
+        # Serialize the randomized options
+        return CurrentOptionSerializer(options_list, many=True).data
 
 class CurrentTestSerializer(serializers.ModelSerializer):
     questions = serializers.SerializerMethodField()
