@@ -447,18 +447,15 @@ def add_balance(request):
         })
     
     # Update school statistics - optimize with annotations and values
+    from django.db.models import Count, Case, When, IntegerField, Q
+
     # Get all schools with counts in a single query
-    school_stats = User.objects.filter(is_active=True, school__isnull=False)\
-        .exclude(school='')\
+    school_stats = User.objects.filter(is_active=True)\
+        .exclude(Q(school__isnull=True) | Q(school=''))\
         .values('school')\
         .annotate(
             user_count=Count('id'),
-            low_balance_count=Count(
-                Case(
-                    When(balance__lt=1500, then=1),
-                    output_field=IntegerField()
-                )
-            )
+            low_balance_count=Count('id', filter=Q(balance__lt=1500))
         ).order_by('school')
         
     # Convert to expected format if needed
