@@ -17,6 +17,7 @@ from django.contrib import messages
 from decimal import Decimal
 from accounts.models import User, Region
 from .forms import AddBalanceForm, AddStudentForm, ResetTestStatusForm
+from django.db import models
 
 @login_required
 def test_list(request):
@@ -360,69 +361,37 @@ def add_balance(request):
     if request.method == 'POST' and form.is_valid():
         filter_type = form.cleaned_data['filter_type']
         amount = form.cleaned_data['amount']
-        set_to_zero = form.cleaned_data.get('set_to_zero', False)  # New field
+        set_to_zero = form.cleaned_data.get('set_to_zero', False)
         users_updated = 0
         
         try:
+            # Use update() for better performance instead of iterating through each user
             if filter_type == 'all':
-                users = User.objects.filter(is_active=True)
                 if set_to_zero:
-                    users = users.filter(balance__gt=0)  # Only reset non-zero balances
+                    users_updated = User.objects.filter(is_active=True, balance__gt=0).update(balance=0)
                 else:
-                    users = users.filter(balance__lt=1500)
-                
-                for user in users:
-                    if set_to_zero:
-                        user.balance = 0
-                    else:
-                        user.balance += amount
-                    user.save()
-                    users_updated += 1
+                    users_updated = User.objects.filter(is_active=True, balance__lt=1500).update(balance=models.F('balance') + amount)
                 
             elif filter_type == 'region':
                 region = form.cleaned_data['region']
-                users = User.objects.filter(region=region, is_active=True)
                 if set_to_zero:
-                    users = users.filter(balance__gt=0)
+                    users_updated = User.objects.filter(region=region, is_active=True, balance__gt=0).update(balance=0)
                 else:
-                    users = users.filter(balance__lt=1500)
-                
-                for user in users:
-                    if set_to_zero:
-                        user.balance = 0
-                    else:
-                        user.balance += amount
-                    user.save()
-                    users_updated += 1
+                    users_updated = User.objects.filter(region=region, is_active=True, balance__lt=1500).update(balance=models.F('balance') + amount)
                 
             elif filter_type == 'school':
                 school = form.cleaned_data['school']
-                users = User.objects.filter(school__iexact=school, is_active=True)
                 if set_to_zero:
-                    users = users.filter(balance__gt=0)
+                    users_updated = User.objects.filter(school__iexact=school, is_active=True, balance__gt=0).update(balance=0)
                 else:
-                    users = users.filter(balance__lt=1500)
-                
-                for user in users:
-                    if set_to_zero:
-                        user.balance = 0
-                    else:
-                        user.balance += amount
-                    user.save()
-                    users_updated += 1
+                    users_updated = User.objects.filter(school__iexact=school, is_active=True, balance__lt=1500).update(balance=models.F('balance') + amount)
                 
             elif filter_type == 'specific':
                 username = form.cleaned_data['username']
-                user = User.objects.get(username=username)
                 if set_to_zero:
-                    if user.balance > 0:
-                        user.balance = 0
-                        user.save()
-                        users_updated = 1
-                elif user.balance < 1500:
-                    user.balance += amount
-                    user.save()
-                    users_updated = 1
+                    users_updated = User.objects.filter(username=username, is_active=True, balance__gt=0).update(balance=0)
+                else:
+                    users_updated = User.objects.filter(username=username, is_active=True, balance__lt=1500).update(balance=models.F('balance') + amount)
             
             if set_to_zero:
                 messages.success(request, f"Баланс успешно обнулен для {users_updated} пользователя(ей).")
@@ -433,32 +402,33 @@ def add_balance(request):
         except Exception as e:
             messages.error(request, f"Произошла ошибка: {str(e)}")
 
-    # Update statistics to show users with balance < 1500
+    # Limit data for the view to reduce load
+    # Basic counts - these are usually fast
     total_users = User.objects.filter(is_active=True).count()
     low_balance_users = User.objects.filter(is_active=True, balance__lt=1500).count()
-    regions = Region.objects.all()
-    region_stats = []
     
-    for region in regions:
-        region_stats.append({
-            'name': region.name,
-            'user_count': User.objects.filter(region=region, is_active=True).count(),
-            'low_balance_count': User.objects.filter(region=region, is_active=True, balance__lt=1500).count()
-        })
+    # Region statistics - using select_related to reduce queries
+    from django.db.models import Count, Q
     
-    # Update school statistics - optimize with annotations and values
-    from django.db.models import Count, Case, When, IntegerField, Q
-
-    # Get all schools with counts in a single query
+    region_stats = Region.objects.annotate(
+        user_count=Count('user', filter=Q(user__is_active=True)),
+        low_balance_count=Count('user', filter=Q(user__is_active=True, user__balance__lt=1500))
+    ).values('name', 'user_count', 'low_balance_count')
+    
+    # School statistics - limiting to top schools to reduce load
+    # This is more efficient than processing all schools
+    MAX_SCHOOLS = 100  # Limit the number of schools to display
+    
     school_stats = User.objects.filter(is_active=True)\
         .exclude(Q(school__isnull=True) | Q(school=''))\
         .values('school')\
         .annotate(
             user_count=Count('id'),
             low_balance_count=Count('id', filter=Q(balance__lt=1500))
-        ).order_by('school')
-        
-    # Convert to expected format if needed
+        )\
+        .order_by('-user_count')[:MAX_SCHOOLS]  # Limit to top schools by user count
+    
+    # Convert to the expected format
     school_stats = [
         {
             'name': school['school'],
@@ -471,8 +441,9 @@ def add_balance(request):
         'form': form,
         'total_users': total_users,
         'low_balance_users': low_balance_users,
-        'region_stats': region_stats,
-        'school_stats': school_stats
+        'region_stats': list(region_stats),  # Convert QuerySet to list for the template
+        'school_stats': school_stats,
+        'limited_schools': True if MAX_SCHOOLS < User.objects.values('school').distinct().count() else False
     }
     
     return render(request, 'dashboard/add_balance.html', context)
