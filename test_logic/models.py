@@ -93,6 +93,12 @@ class Question(models.Model):
     class Meta:
         verbose_name = 'Вопрос'
         verbose_name_plural = 'Вопросы'
+        indexes = [
+            models.Index(fields=['test']),
+            models.Index(fields=['task_type']),
+            models.Index(fields=['test', 'task_type']),
+            models.Index(fields=['subject_id']),
+        ]
 
 class Option(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -107,6 +113,11 @@ class Option(models.Model):
     class Meta:
         verbose_name = 'Вариант'
         verbose_name_plural = 'Варианты'
+        indexes = [
+            models.Index(fields=['question']),
+            models.Index(fields=['is_correct']),
+            models.Index(fields=['question', 'is_correct']),
+        ]
 
 
 class Result(models.Model):
@@ -157,6 +168,12 @@ class CompletedTest(models.Model):
     class Meta:
         verbose_name = 'Результаты'
         verbose_name_plural = 'Результаты'
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['product']),
+            models.Index(fields=['completed_date']),
+            models.Index(fields=['user', 'product']),
+        ]
 
 
 class CompletedQuestion(models.Model):
@@ -172,3 +189,9 @@ class CompletedQuestion(models.Model):
     class Meta:
         verbose_name = 'Результаты вопросов'
         verbose_name_plural = 'Результаты вопросов'
+        indexes = [
+            models.Index(fields=['completed_test']),
+            models.Index(fields=['test']),
+            models.Index(fields=['question']),
+            models.Index(fields=['completed_test', 'test']),
+        ]

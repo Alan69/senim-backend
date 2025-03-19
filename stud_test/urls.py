@@ -15,6 +15,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.decorators.cache import cache_page
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -23,6 +24,9 @@ from django.views.generic import TemplateView
 from drf_yasg.views import get_schema_view 
 from drf_yasg import openapi 
 from rest_framework import permissions
+
+# Cache the admin index page
+admin.site.index = cache_page(60 * 5)(admin.site.index)
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -57,8 +61,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('statistics/', include('dashboard.urls')),
     path('test-logic/', include('test_logic.urls')),
-    # path('accounts/', include('accounts.urls')),
-    # path('tests/', include('test_logic.urls')),
     path('payments/', include('payments.urls')),
     path('api/', include('api.urls')),
     path('request/', include('test_request.urls')),

@@ -23,26 +23,43 @@ from rest_framework.decorators import permission_classes
 from decimal import Decimal
 from random import shuffle
 from django.db.models import Q
+from django.core.cache import cache
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
+from django.db import transaction
+from accounts.models import User
 
 logger = logging.getLogger(__name__)
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    
+    @method_decorator(cache_page(60 * 15))  # Cache for 15 minutes
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+    
+    @method_decorator(cache_page(60 * 15))
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
 
 class TestViewSet(viewsets.ModelViewSet):
     queryset = Test.objects.all()
     serializer_class = TestSerializer
 
+    @method_decorator(cache_page(60 * 10), name='dispatch')
     @action(detail=True, methods=['get'])
     def questions(self, request, pk=None):
-        test = self.get_object()
-        questions = Question.objects.filter(test=test)
-        data = QuestionSerializer(questions, many=True).data
+        # Cache key for this specific test's questions
+        cache_key = f'test_questions:{pk}'
+        data = cache.get(cache_key)
         
-        # for question in data:
-        #     question['options'] = OptionSerializer(question['options'], many=True).data
+        if not data:
+            test = self.get_object()
+            questions = Question.objects.filter(test=test)
+            data = QuestionSerializer(questions, many=True).data
+            cache.set(cache_key, data, 60 * 10)  # Cache for 10 minutes
         
         return Response(data)
 
@@ -271,106 +288,121 @@ def required_tests_by_product(request, product_id):
 @permission_classes([IsAuthenticated])
 def complete_test_view(request):
     user = request.user
-    
-    logger.debug(f"User attempting to complete test: {user.username}, is_authenticated: {user.is_authenticated}")
-    logger.debug(f"Request headers: {request.headers}")
-    
     product_id = request.data.get('product_id')
     tests_data = request.data.get('tests')
     
-    logger.debug(f"Received data - product_id: {product_id}, tests_data length: {len(tests_data) if tests_data else 0}")
-
-    # Validate request data
-    if not product_id or not isinstance(tests_data, list):
-        logger.error(f"Invalid input data: product_id={product_id}, tests_data type={type(tests_data)}")
-        return Response({"detail": "Invalid input data"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Get the product
-    try:
-        product = Product.objects.get(id=product_id)
-    except Product.DoesNotExist:
-        return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    # Calculate time spent
-    test_finish_test_time = now()
-    test_start_time = user.test_start_time
+    # Validation logic...
     
-    # Handle case where test_start_time is None
-    if test_start_time is None:
-        logger.warning(f"test_start_time is None for user {user.username}, using current time")
-        time_spent = 0  # Default to 0 if we can't calculate actual time
-    else:
-        time_spent = (test_finish_test_time - test_start_time).total_seconds()
-
-    # Create the CompletedTest instance
-    completed_test = CompletedTest.objects.create(
-        user=user,
-        product=product,
-        completed_date=test_finish_test_time,
-        start_test_time=test_start_time or test_finish_test_time,  # Use finish time as start time if start time is None
-        time_spent=time_spent
-    )
-
-    # Process each test and its questions
-    for test_data in tests_data:
-        test_id = test_data.get('id')
-        questions_data = test_data.get('questions')
-
-        # Validate test existence
+    # Database operations inside a transaction for atomicity and performance
+    with transaction.atomic():
+        # Get the product (using select_related if needed)
         try:
-            test = Test.objects.get(id=test_id, product=product)
-        except Test.DoesNotExist:
-            return Response({"detail": f"Test with id {test_id} not found."}, status=status.HTTP_404_NOT_FOUND)
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Link the test to CompletedTest
-        completed_test.tests.add(test)
+        # Calculate time spent
+        test_finish_test_time = now()
+        test_start_time = user.test_start_time
+        
+        if test_start_time is None:
+            logger.warning(f"test_start_time is None for user {user.username}, using current time")
+            time_spent = 0
+        else:
+            time_spent = (test_finish_test_time - test_start_time).total_seconds()
 
-        # Process each question
-        for question_data in questions_data:
-            question_id = question_data.get('id')
-            selected_option_ids = question_data.get('option_id')
+        # Create the CompletedTest instance
+        completed_test = CompletedTest.objects.create(
+            user=user,
+            product=product,
+            completed_date=test_finish_test_time,
+            start_test_time=test_start_time or test_finish_test_time,
+            time_spent=time_spent
+        )
+
+        # Collect all test IDs for bulk prefetching
+        test_ids = [test_data.get('id') for test_data in tests_data]
+        tests_dict = {str(test.id): test for test in Test.objects.filter(id__in=test_ids, product=product)}
+        
+        # Add tests to completed_test with bulk operation
+        completed_test.tests.add(*list(tests_dict.values()))
+        
+        # Prepare bulk creation lists
+        completed_questions = []
+        option_mappings = []  # For M2M relationships
+        
+        # Process each test and question
+        for test_data in tests_data:
+            test_id = test_data.get('id')
+            questions_data = test_data.get('questions', [])
             
-            # Convert single option_id to list if necessary
-            if selected_option_ids is None:
-                selected_option_ids = []
-            elif isinstance(selected_option_ids, (str, uuid.UUID)):
-                selected_option_ids = [selected_option_ids]
-            elif isinstance(selected_option_ids, list):
-                selected_option_ids = selected_option_ids
-            else:
-                selected_option_ids = []
+            if test_id not in tests_dict:
+                continue  # Skip invalid test ID
+                
+            test = tests_dict[test_id]
+            
+            # Collect question IDs for prefetching
+            question_ids = [q.get('id') for q in questions_data if q.get('id')]
+            questions_dict = {str(q.id): q for q in Question.objects.filter(id__in=question_ids, test=test)}
+            
+            # Collect option IDs for prefetching
+            all_option_ids = []
+            for q_data in questions_data:
+                opt_ids = q_data.get('option_id')
+                if isinstance(opt_ids, list):
+                    all_option_ids.extend(opt_ids)
+                elif opt_ids:
+                    all_option_ids.append(opt_ids)
+                    
+            options_dict = {str(o.id): o for o in Option.objects.filter(id__in=all_option_ids)}
+            
+            # Create CompletedQuestion objects
+            for q_data in questions_data:
+                q_id = q_data.get('id')
+                if q_id not in questions_dict:
+                    continue  # Skip invalid question ID
+                    
+                question = questions_dict[q_id]
+                completed_q = CompletedQuestion(
+                    completed_test=completed_test,
+                    test=test,
+                    question=question
+                )
+                completed_questions.append(completed_q)
+                
+                # Track option mappings for bulk creation later
+                opt_ids = q_data.get('option_id')
+                if not opt_ids:
+                    continue
+                    
+                if not isinstance(opt_ids, list):
+                    opt_ids = [opt_ids]
+                    
+                for opt_id in opt_ids:
+                    if opt_id in options_dict:
+                        option_mappings.append((completed_q, options_dict[opt_id]))
+        
+        # Bulk create all CompletedQuestion objects
+        if completed_questions:
+            CompletedQuestion.objects.bulk_create(completed_questions)
+            
+            # Now add the M2M relationships for selected options
+            for completed_q, option in option_mappings:
+                completed_q.selected_option.add(option)
+        
+        # Reset user test state
+        User.objects.filter(id=user.id).update(
+            test_is_started=False,
+            test_start_time=None,
+            finish_test_time=None
+        )
 
-            try:
-                question = Question.objects.get(id=question_id, test=test)
-            except Question.DoesNotExist:
-                return Response({"detail": f"Question with id {question_id} not found in test {test_id}."}, status=status.HTTP_404_NOT_FOUND)
-
-            # Create the CompletedQuestion instance
-            completed_question = CompletedQuestion.objects.create(
-                completed_test=completed_test,
-                test=test,
-                question=question
-            )
-
-            # Add selected options (if any)
-            for option_id in selected_option_ids:
-                try:
-                    option = Option.objects.get(id=option_id, question=question)
-                    completed_question.selected_option.add(option)
-                except Option.DoesNotExist:
-                    return Response({"detail": f"Option with id {option_id} not found for question {question_id}."}, status=status.HTTP_404_NOT_FOUND)
-
-    # Reset user test state after completion
-    user.test_is_started = False
-    user.test_start_time = None
-    user.finish_test_time = None
-    user.save()
+    # Clear user-specific caches
+    cache.delete_pattern(f'test_questions:*:user:{user.id}')
     
-    print(f"user: {user.email} completed test {product.title}, user.test_is_started: {user.test_is_started}, user.test_start_time: {user.test_start_time}, user.finish_test_time: {user.finish_test_time}" )
-
     return Response({
         "completed_test_id": str(completed_test.id),
-        "time_spent_minutes": time_spent / 60  # Convert seconds to minutes
+        "time_spent_minutes": time_spent / 60
     }, status=status.HTTP_201_CREATED)
 
 
@@ -492,11 +524,26 @@ def get_completed_test_by_id(request, completed_test_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_completed_tests(request):
-    completed_tests = CompletedTest.objects.filter(user=request.user)
-
+    # Use caching for user's completed tests
+    cache_key = f'user_completed_tests:{request.user.id}'
+    cached_data = cache.get(cache_key)
+    
+    if cached_data:
+        return Response(cached_data, status=status.HTTP_200_OK)
+    
+    # Use select_related to reduce database queries
+    completed_tests = CompletedTest.objects.filter(user=request.user)\
+        .select_related('product')\
+        .prefetch_related('tests')
+    
     # Serialize all CompletedTests
     serializer = CompletedTestSerializer(completed_tests, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    data = serializer.data
+    
+    # Cache the result for 5 minutes
+    cache.set(cache_key, data, 60 * 5)
+    
+    return Response(data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 def empty_options_view(request):
