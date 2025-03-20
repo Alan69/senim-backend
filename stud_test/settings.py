@@ -256,11 +256,11 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message} {path} {status_code} {user}',
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
-        'request_formatter': {
-            'format': '{levelname} [{asctime}] {message} - IP:{remote_addr} - User:{user} - Path:{path} - Method:{method} - Status:{status_code}',
+        'simple': {
+            'format': '{levelname} {asctime} {message}',
             'style': '{',
         },
     },
@@ -288,12 +288,12 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
-        'test_logic': {  # Add your app name here
+        'test_logic': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': False,
         },
-        'accounts': {  # Add your auth app name here
+        'accounts': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': False,
