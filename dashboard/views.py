@@ -151,17 +151,18 @@ def test_statistics(request):
     
     # Process the test statistics directly
     statistics = []
-    for test in current_page_tests:
+    for completed_test in current_page_tests:
         # Dictionary to store test-specific statistics
         test_stats = {}
         correct_answers = 0
         wrong_answers = 0
         
         # Get all completed questions for this test in one query
-        completed_questions = test.completed_questions.all()
+        completed_questions = completed_test.completed_questions.all()
         
         for question in completed_questions:
-            test_title = test.title
+            # Use the product title or a fallback title if needed
+            test_title = completed_test.product.title if hasattr(completed_test.product, 'title') else "Completed Test"
             
             # Initialize test stats if not already present
             if test_title not in test_stats:
@@ -172,7 +173,7 @@ def test_statistics(request):
                 }
             
             # Check if any selected option is correct
-            selected_options = list(question.selected_option.all())  # Convert to list to avoid multiple queries
+            selected_options = list(question.selected_option.all())
             has_correct = any(option.is_correct for option in selected_options)
             
             # Update statistics
@@ -201,11 +202,11 @@ def test_statistics(request):
         ]
         
         statistics.append({
-            'completed_test': test,
-            'user': test.user,
-            'region': test.user.region,
-            'school': test.user.school,
-            'completed_date': test.completed_date,
+            'completed_test': completed_test,
+            'user': completed_test.user,
+            'region': completed_test.user.region,
+            'school': completed_test.user.school,
+            'completed_date': completed_test.completed_date,
             'correct_answers': correct_answers,
             'wrong_answers': wrong_answers,
             'total_questions': total_questions,
