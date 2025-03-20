@@ -31,11 +31,11 @@ services:
   
   redis:
     image: redis:7.0
-    ports:
-      - "6379:6379"
+    expose:
+      - 6379
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --protected-mode yes
     restart: always
 
   nginx:
