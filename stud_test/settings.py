@@ -25,13 +25,7 @@ GMAIL_SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 # SECRET_KEY = env('SECRET_KEY')
 SECRET_KEY = 'senimtestsecretkeyfordjangproj123@@@##!!!^^^asdsaddjango-insecure-oohlgr5t_rvhn2lb35+0#%vs#hobl0y+orm^_54qmywrwse-7y'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = env('DEBUG')
-
 DEBUG = True
-
-# ALLOWED_HOSTS = ['synaqtest.kz', '185.22.65.38']
-# api.sapatest.com www.api.sapatest.com
 ALLOWED_HOSTS = ['api.sapatest.com', 'www.api.sapatest.com', '77.243.80.158', '127.0.0.1', 'localhost']
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 20000
@@ -109,14 +103,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ],
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
-    ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour'
-    }
 }
 
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
@@ -205,17 +191,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'stud_test.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -224,23 +199,8 @@ DATABASES = {
         'PASSWORD': env('DB_PASSWORD'),
         'HOST': env('DB_HOST'),
         'PORT': env('DB_PORT'),
-        'CONN_MAX_AGE': 60,  # Keep connections alive for 60 seconds
-        'OPTIONS': {
-            'connect_timeout': 10,
-        }
     }
 }
-
-
-# STORAGES = {
-#     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-#     "staticfiles": {
-#         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-#     },
-# }
-
-# Password validation
-# https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     # {
