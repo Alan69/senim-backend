@@ -307,7 +307,7 @@ def complete_test_view(request):
         user=user,
         product=product,
         completed_date=test_finish_test_time,
-        start_test_time=test_start_time or test_finish_test_time,  # Use finish time as start time if start time is None
+        start_test_time=test_start_time or test_finish_test_time,
         time_spent=time_spent
     )
 
@@ -318,7 +318,7 @@ def complete_test_view(request):
 
         # Validate test existence
         try:
-            test = Test.objects.get(id=test_id, product=product)
+            test = Test.objects.select_related('product').get(id=test_id, product=product)
         except Test.DoesNotExist:
             return Response({"detail": f"Test with id {test_id} not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -341,7 +341,7 @@ def complete_test_view(request):
                 selected_option_ids = []
 
             try:
-                question = Question.objects.get(id=question_id, test=test)
+                question = Question.objects.select_related('test').get(id=question_id, test=test)
             except Question.DoesNotExist:
                 return Response({"detail": f"Question with id {question_id} not found in test {test_id}."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -353,12 +353,19 @@ def complete_test_view(request):
             )
 
             # Add selected options (if any)
-            for option_id in selected_option_ids:
-                try:
-                    option = Option.objects.get(id=option_id, question=question)
-                    completed_question.selected_option.add(option)
-                except Option.DoesNotExist:
-                    return Response({"detail": f"Option with id {option_id} not found for question {question_id}."}, status=status.HTTP_404_NOT_FOUND)
+            if selected_option_ids:
+                # Prefetch all selected options in a single query
+                selected_options = Option.objects.filter(
+                    id__in=selected_option_ids, 
+                    question=question
+                )
+                
+                # Check if any options were not found
+                if len(selected_options) != len(selected_option_ids):
+                    return Response({"detail": f"One or more options not found for question {question_id}."}, status=status.HTTP_404_NOT_FOUND)
+                
+                # Add all options at once
+                completed_question.selected_option.add(*selected_options)
 
     # Reset user test state after completion
     user.test_is_started = False
@@ -428,7 +435,17 @@ def complete_test_view(request):
 @permission_classes([IsAuthenticated])
 def get_completed_test_by_id(request, completed_test_id):
     try:
-        completed_test = CompletedTest.objects.get(id=completed_test_id, user=request.user)
+        completed_test = CompletedTest.objects.select_related(
+            'user', 
+            'product'
+        ).prefetch_related(
+            'tests',
+            'completed_questions',
+            'completed_questions__question',
+            'completed_questions__question__options',
+            'completed_questions__selected_option',
+            'completed_questions__test'
+        ).get(id=completed_test_id, user=request.user)
     except CompletedTest.DoesNotExist:
         return Response({"detail": "CompletedTest not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -492,7 +509,10 @@ def get_completed_test_by_id(request, completed_test_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_completed_tests(request):
-    completed_tests = CompletedTest.objects.filter(user=request.user)
+    completed_tests = CompletedTest.objects.select_related(
+        'user',
+        'product'
+    ).filter(user=request.user)
 
     # Serialize all CompletedTests
     serializer = CompletedTestSerializer(completed_tests, many=True)
@@ -505,14 +525,19 @@ def empty_options_view(request):
     product_id = request.GET.get('product_id', '4ce7261c-29e8-4514-94c0-68344010c2d9')
     
     # Get tests associated with the product
-    tests = Test.objects.filter(product_id=product_id)
+    tests = Test.objects.select_related('product').filter(product_id=product_id)
     
     if not tests.exists():
         return Response({"error": f"No tests found for Product ID: {product_id}"}, 
                        status=status.HTTP_404_NOT_FOUND)
     
     # Find questions that have options with empty text
-    questions_with_empty_options = Question.objects.filter(
+    questions_with_empty_options = Question.objects.select_related(
+        'test', 
+        'test__product'
+    ).prefetch_related(
+        'options'
+    ).filter(
         test__in=tests,
         options__text__in=['', ' ']
     ).distinct()
