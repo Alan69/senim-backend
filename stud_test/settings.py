@@ -340,18 +340,25 @@ LOGGING = {
     },
 }
 
-# Redis Cache Configuration
+# Redis Cache Configuration with connection handling changes
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': 'redis://redis:6379/1',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'SOCKET_CONNECT_TIMEOUT': 5,  # Socket timeout in seconds
+            'SOCKET_TIMEOUT': 5,  # Socket timeout in seconds
             'CONNECTION_POOL_KWARGS': {'max_connections': 100},
+            'IGNORE_EXCEPTIONS': True,  # Don't let Redis errors break the app
+            'RETRY_ON_TIMEOUT': True,   # Try to reconnect if timeout
         },
         'KEY_PREFIX': 'sapatest'
     }
 }
+
+# Use a fallback caching system in case Redis fails
+DJANGO_REDIS_IGNORE_EXCEPTIONS = True
 
 # Cache timeout value
 CACHE_TTL = 60 * 15  # 15 minutes
