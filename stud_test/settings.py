@@ -119,7 +119,7 @@ REST_FRAMEWORK = {
     }
 }
 
-SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -157,10 +157,10 @@ CORS_ALLOW_CREDENTIALS = True
 AUTH_USER_MODEL = 'accounts.User'
 
 # Cookie settings
-SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
+SESSION_COOKIE_AGE = 86400  # 1 day in seconds
 SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to the cookie
 SESSION_COOKIE_SECURE = True  # Use True if using HTTPS
-SESSION_SAVE_EVERY_REQUEST = True  # Save the session to the database on every request
+SESSION_SAVE_EVERY_REQUEST = False
 
 # Custom cookie settings
 TEST_COOKIE_NAME = 'test_responses'
@@ -344,8 +344,13 @@ LOGGING = {
 # Redis Cache Configuration with connection handling changes
 CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
+        'BACKEND': 'stud_test.cache.FailsafeCache',
         'LOCATION': 'redis://redis:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'IGNORE_EXCEPTIONS': True,  # Don't break on Redis errors
+        },
+        'KEY_PREFIX': 'sapatest'
     }
 }
 
