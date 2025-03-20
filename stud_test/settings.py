@@ -280,7 +280,7 @@ STATICFILES_DIRS = [
 ]
 
 # Use a standard storage backend instead of the manifest storage
-STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Explicitly define finders
 STATICFILES_FINDERS = [
