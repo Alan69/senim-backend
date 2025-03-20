@@ -279,17 +279,14 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 
-# Add this for proper static file handling
+# Use a standard storage backend instead of the manifest storage
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
+# Explicitly define finders
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
-
-# Make sure to use ManifestStaticFilesStorage only in production
-if not DEBUG:
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
-else:
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # media directory in the root directory
 MEDIA_URL = 'https://api.sapatest.com/media/'
@@ -379,31 +376,30 @@ SESSION_CACHE_ALIAS = "default"
 
 # Jazzmin Admin settings
 JAZZMIN_SETTINGS = {
-    # title of the window (Will default to current_admin_site.site_title if absent or None)
+    # title of the window
     "site_title": "SapaTest Admin",
-    # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
+    # Title on the login screen
     "site_header": "SapaTest",
-    # Logo to use for your site, must be present in static files, used for login form logo (defaults to site_logo)
-    "site_logo": "path/to/your/logo.png",  # Remove this if you don't have a logo
-    # CSS classes that are applied to the logo above
-    "site_logo_classes": "img-circle",
-    # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
+    # Remove logo reference if you don't have one
+    # "site_logo": "path/to/your/logo.png",
+    "site_logo": None,
+    "site_logo_classes": None,
     "site_icon": None,
-    # Welcome text on the login screen
     "welcome_sign": "Welcome to SapaTest Admin",
-    # Copyright on the footer
     "copyright": "SapaTest",
-    # Field name on user model that contains avatar image
     "user_avatar": None,
     
-    # Use the default theme
-    "default_theme": "default",
+    # Disable custom theming to avoid static file issues
+    "show_ui_builder": False,
+    "custom_css": None,
+    "custom_js": None,
+    
+    # Use default theme (which is included in Jazzmin itself)
+    "default_theme": None,
     
     # Links to put along the top menu
     "topmenu_links": [
-        # Url that gets reversed (Permissions can be added)
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
-        # model admin to link to (Permissions checked against model)
         {"model": "auth.User"},
     ],
 }
