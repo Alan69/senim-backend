@@ -28,7 +28,7 @@ SECRET_KEY = 'senimtestsecretkeyfordjangproj123@@@##!!!^^^asdsaddjango-insecure-
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = env('DEBUG')
 
-DEBUG = True
+DEBUG = False
 
 # ALLOWED_HOSTS = ['synaqtest.kz', '185.22.65.38']
 # api.sapatest.com www.api.sapatest.com
