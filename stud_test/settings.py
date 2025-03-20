@@ -256,11 +256,11 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message} {path} {status_code} {user}',
             'style': '{',
         },
-        'simple': {
-            'format': '{levelname} {message}',
+        'request_formatter': {
+            'format': '{levelname} [{asctime}] {message} - IP:{remote_addr} - User:{user} - Path:{path} - Method:{method} - Status:{status_code}',
             'style': '{',
         },
     },
