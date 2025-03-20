@@ -282,12 +282,6 @@ STATICFILES_DIRS = [
 # Use a standard storage backend instead of the manifest storage
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Explicitly define finders
-STATICFILES_FINDERS = [
-    'django.contrib.staticfiles.finders.FileSystemFinder',
-    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
-]
-
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # media directory in the root directory
 MEDIA_URL = 'https://api.sapatest.com/media/'
 
@@ -352,15 +346,6 @@ CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': 'redis://redis:6379/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'SOCKET_CONNECT_TIMEOUT': 5,  # Socket timeout in seconds
-            'SOCKET_TIMEOUT': 5,  # Socket timeout in seconds
-            'CONNECTION_POOL_KWARGS': {'max_connections': 100},
-            'IGNORE_EXCEPTIONS': True,  # Don't let Redis errors break the app
-            'RETRY_ON_TIMEOUT': True,   # Try to reconnect if timeout
-        },
-        'KEY_PREFIX': 'sapatest'
     }
 }
 
@@ -373,33 +358,3 @@ CACHE_TTL = 60 * 15  # 15 minutes
 # Session Configuration - Use Redis for sessions
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
-
-# Jazzmin Admin settings
-JAZZMIN_SETTINGS = {
-    # title of the window
-    "site_title": "SapaTest Admin",
-    # Title on the login screen
-    "site_header": "SapaTest",
-    # Remove logo reference if you don't have one
-    # "site_logo": "path/to/your/logo.png",
-    "site_logo": None,
-    "site_logo_classes": None,
-    "site_icon": None,
-    "welcome_sign": "Welcome to SapaTest Admin",
-    "copyright": "SapaTest",
-    "user_avatar": None,
-    
-    # Disable custom theming to avoid static file issues
-    "show_ui_builder": False,
-    "custom_css": None,
-    "custom_js": None,
-    
-    # Use default theme (which is included in Jazzmin itself)
-    "default_theme": None,
-    
-    # Links to put along the top menu
-    "topmenu_links": [
-        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"model": "auth.User"},
-    ],
-}
