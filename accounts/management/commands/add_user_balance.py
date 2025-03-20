@@ -75,28 +75,4 @@ class Command(BaseCommand):
             elapsed = time.time() - start_time
             self.stdout.write(f"Progress: {processed}/{total_users} users updated ({progress:.1f}%) - {elapsed:.1f} seconds elapsed")
         
-        self.stdout.write(self.style.SUCCESS(f"Successfully added {amount} to balance of {processed} users"))
-        
-        # Reset relevant cache entries if requested
-        if reset_cache:
-            cache_keys = [
-                'total_users_count',
-                'low_balance_users_count',
-                'region_stats:balance'
-            ]
-            
-            if region_id:
-                cache_keys.append(f'region_users:{region_id}')
-            
-            for key in cache_keys:
-                cache.delete(key)
-                self.stdout.write(f"Deleted cache key: {key}")
-            
-            # Also clear pattern-based keys
-            try:
-                cache.delete_pattern('school_stats:*')
-                self.stdout.write("Cleared school statistics cache")
-            except AttributeError:
-                self.stdout.write(self.style.WARNING("delete_pattern not supported by cache backend - skipping pattern clears"))
-            
-            self.stdout.write(self.style.SUCCESS("Cache entries reset successfully")) 
+        self.stdout.write(self.style.SUCCESS(f"Successfully added {amount} to balance of {processed} users")) 

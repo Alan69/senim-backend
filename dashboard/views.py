@@ -110,118 +110,109 @@ def test_statistics(request):
     end_date = request.GET.get('end_date')
     page = request.GET.get('page', 1)
     
-    # Create a cache key based on the query parameters
-    cache_key = f"test_stats:{region_id}:{school}:{start_date}:{end_date}:{page}"
+    # Remove cache key and cache operations
+    # Base queryset with select_related and prefetch_related
+    completed_tests = CompletedTest.objects.select_related(
+        'user', 
+        'user__region',
+        'product'
+    )
     
-    # Try to get cached data first
-    statistics = cache.get(cache_key)
+    # Apply filters
+    if region_id and region_id != '':
+        completed_tests = completed_tests.filter(user__region_id=region_id)
+    if school:
+        completed_tests = completed_tests.filter(user__school__icontains=school)
+    if start_date:
+        completed_tests = completed_tests.filter(completed_date__gte=start_date)
+    if end_date:
+        completed_tests = completed_tests.filter(completed_date__lte=end_date)
     
-    if statistics is None:
-        # Base queryset with select_related and prefetch_related
-        completed_tests = CompletedTest.objects.select_related(
-            'user', 
-            'user__region',
-            'product'
-        )
+    # Order by completed date
+    completed_tests = completed_tests.order_by('-completed_date')
+    
+    # Handle Excel export before pagination
+    if request.GET.get('export') == 'excel':
+        return export_to_excel(completed_tests)
+    
+    # Count total before pagination for pagination display
+    total_count = completed_tests.count()
+    
+    # Paginate the queryset
+    paginator = Paginator(completed_tests, 50)
+    page_obj = paginator.get_page(page)
+    
+    # Now prefetch related data only for the current page
+    current_page_tests = page_obj.object_list.prefetch_related(
+        'completed_questions',
+        'completed_questions__question',
+        'completed_questions__selected_option',
+        'completed_questions__test'
+    )
+    
+    # Process the test statistics directly
+    statistics = []
+    for test in current_page_tests:
+        # Dictionary to store test-specific statistics
+        test_stats = {}
+        correct_answers = 0
+        wrong_answers = 0
         
-        # Apply filters
-        if region_id and region_id != '':
-            completed_tests = completed_tests.filter(user__region_id=region_id)
-        if school:
-            completed_tests = completed_tests.filter(user__school__icontains=school)
-        if start_date:
-            completed_tests = completed_tests.filter(completed_date__gte=start_date)
-        if end_date:
-            completed_tests = completed_tests.filter(completed_date__lte=end_date)
+        # Get all completed questions for this test in one query
+        completed_questions = test.completed_questions.all()
         
-        # Order by completed date
-        completed_tests = completed_tests.order_by('-completed_date')
-        
-        # Handle Excel export before pagination
-        if request.GET.get('export') == 'excel':
-            return export_to_excel(completed_tests)
-        
-        # Count total before pagination for pagination display
-        total_count = completed_tests.count()
-        
-        # Paginate the queryset
-        paginator = Paginator(completed_tests, 50)
-        page_obj = paginator.get_page(page)
-        
-        # Now prefetch related data only for the current page
-        current_page_tests = page_obj.object_list.prefetch_related(
-            'completed_questions',
-            'completed_questions__question',
-            'completed_questions__selected_option',
-            'completed_questions__test'
-        )
-        
-        # Process results
-        statistics = []
-        for test in current_page_tests:
-            # Dictionary to store test-specific statistics
-            test_stats = {}
-            correct_answers = 0
-            wrong_answers = 0
+        for question in completed_questions:
+            test_title = test.title
             
-            # Get all completed questions for this test in one query
-            completed_questions = test.completed_questions.all()
-            
-            for question in completed_questions:
-                test_title = test.title
-                
-                # Initialize test stats if not already present
-                if test_title not in test_stats:
-                    test_stats[test_title] = {
-                        'correct': 0,
-                        'incorrect': 0,
-                        'total': 0
-                    }
-                
-                # Check if any selected option is correct
-                selected_options = list(question.selected_option.all())  # Convert to list to avoid multiple queries
-                has_correct = any(option.is_correct for option in selected_options)
-                
-                # Update statistics
-                if has_correct:
-                    correct_answers += 1
-                    test_stats[test_title]['correct'] += 1
-                else:
-                    wrong_answers += 1
-                    test_stats[test_title]['incorrect'] += 1
-                
-                test_stats[test_title]['total'] += 1
-            
-            total_questions = correct_answers + wrong_answers
-            score_percentage = round((correct_answers / total_questions) * 100, 2) if total_questions > 0 else 0
-            
-            # Convert test_stats dictionary to a list
-            test_statistics = [
-                {
-                    'name': test_name,
-                    'correct': stats['correct'],
-                    'incorrect': stats['incorrect'],
-                    'total': stats['total'],
-                    'percentage': round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
+            # Initialize test stats if not already present
+            if test_title not in test_stats:
+                test_stats[test_title] = {
+                    'correct': 0,
+                    'incorrect': 0,
+                    'total': 0
                 }
-                for test_name, stats in test_stats.items()
-            ]
             
-            statistics.append({
-                'completed_test': test,
-                'user': test.user,
-                'region': test.user.region,
-                'school': test.user.school,
-                'completed_date': test.completed_date,
-                'correct_answers': correct_answers,
-                'wrong_answers': wrong_answers,
-                'total_questions': total_questions,
-                'score_percentage': score_percentage,
-                'test_statistics': test_statistics
-            })
+            # Check if any selected option is correct
+            selected_options = list(question.selected_option.all())  # Convert to list to avoid multiple queries
+            has_correct = any(option.is_correct for option in selected_options)
+            
+            # Update statistics
+            if has_correct:
+                correct_answers += 1
+                test_stats[test_title]['correct'] += 1
+            else:
+                wrong_answers += 1
+                test_stats[test_title]['incorrect'] += 1
+            
+            test_stats[test_title]['total'] += 1
         
-        # Cache the processed statistics for 5 minutes
-        cache.set(cache_key, statistics, 60 * 5)
+        total_questions = correct_answers + wrong_answers
+        score_percentage = round((correct_answers / total_questions) * 100, 2) if total_questions > 0 else 0
+        
+        # Convert test_stats dictionary to a list
+        test_statistics = [
+            {
+                'name': test_name,
+                'correct': stats['correct'],
+                'incorrect': stats['incorrect'],
+                'total': stats['total'],
+                'percentage': round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
+            }
+            for test_name, stats in test_stats.items()
+        ]
+        
+        statistics.append({
+            'completed_test': test,
+            'user': test.user,
+            'region': test.user.region,
+            'school': test.user.school,
+            'completed_date': test.completed_date,
+            'correct_answers': correct_answers,
+            'wrong_answers': wrong_answers,
+            'total_questions': total_questions,
+            'score_percentage': score_percentage,
+            'test_statistics': test_statistics
+        })
     
     # Get all regions for the filter dropdown
     regions = Region.objects.all()
@@ -420,60 +411,36 @@ def add_balance(request):
         except Exception as e:
             messages.error(request, f"Произошла ошибка: {str(e)}")
 
-        # After processing form, invalidate relevant caches
-        cache.delete('total_users_count')
-        cache.delete('low_balance_users_count')
-        cache.delete_pattern('region_stats:*')
-        cache.delete_pattern('school_stats:*')
-
-    # Get cached total counts or compute them
-    total_users = cache.get('total_users_count')
-    if total_users is None:
-        total_users = User.objects.filter(is_active=True).count()
-        cache.set('total_users_count', total_users, 60 * 10)  # Cache for 10 minutes
+    # Replace cached data fetching with direct database queries
+    total_users = User.objects.filter(is_active=True).count()
+    low_balance_users = User.objects.filter(is_active=True, balance__lt=1500).count()
     
-    low_balance_users = cache.get('low_balance_users_count')
-    if low_balance_users is None:
-        low_balance_users = User.objects.filter(is_active=True, balance__lt=1500).count()
-        cache.set('low_balance_users_count', low_balance_users, 60 * 10)
+    # Replace cached region stats with direct database query
+    region_stats = list(Region.objects.annotate(
+        user_count=Count('user', filter=Q(user__is_active=True)),
+        low_balance_count=Count('user', filter=Q(user__is_active=True, user__balance__lt=1500))
+    ).values('name', 'user_count', 'low_balance_count'))
     
-    # Get cached region stats
-    region_stats_key = 'region_stats:balance'
-    region_stats = cache.get(region_stats_key)
-    if region_stats is None:
-        # Your existing region stats query with annotations
-        region_stats = list(Region.objects.annotate(
-            user_count=Count('user', filter=Q(user__is_active=True)),
-            low_balance_count=Count('user', filter=Q(user__is_active=True, user__balance__lt=1500))
-        ).values('name', 'user_count', 'low_balance_count'))
-        
-        cache.set(region_stats_key, region_stats, 60 * 10)
+    # Replace cached school stats with direct database query
+    MAX_SCHOOLS = 100  # Limit to prevent performance issues
     
-    # For school stats, limit to top schools by user count to reduce processing time
-    school_stats_key = 'school_stats:balance:top100'
-    school_stats = cache.get(school_stats_key)
-    if school_stats is None:
-        MAX_SCHOOLS = 100  # Limit to prevent performance issues
-        
-        school_stats = list(User.objects.filter(is_active=True)
-            .exclude(Q(school__isnull=True) | Q(school=''))
-            .values('school')
-            .annotate(
-                user_count=Count('id'),
-                low_balance_count=Count('id', filter=Q(balance__lt=1500))
-            )
-            .order_by('-user_count')[:MAX_SCHOOLS])
-        
-        # Convert to the expected format
-        school_stats = [
-            {
-                'name': school['school'],
-                'user_count': school['user_count'],
-                'low_balance_count': school['low_balance_count']
-            } for school in school_stats
-        ]
-        
-        cache.set(school_stats_key, school_stats, 60 * 10)
+    school_stats = list(User.objects.filter(is_active=True)
+        .exclude(Q(school__isnull=True) | Q(school=''))
+        .values('school')
+        .annotate(
+            user_count=Count('id'),
+            low_balance_count=Count('id', filter=Q(balance__lt=1500))
+        )
+        .order_by('-user_count')[:MAX_SCHOOLS])
+    
+    # Convert to the expected format
+    school_stats = [
+        {
+            'name': school['school'],
+            'user_count': school['user_count'],
+            'low_balance_count': school['low_balance_count']
+        } for school in school_stats
+    ]
     
     context = {
         'form': form,

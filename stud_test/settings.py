@@ -341,25 +341,14 @@ LOGGING = {
     },
 }
 
-# Redis Cache Configuration with connection handling changes
+# Replace your existing CACHES configuration with a dummy cache
 CACHES = {
     'default': {
-        'BACKEND': 'stud_test.cache.FailsafeCache',
-        'LOCATION': 'redis://redis:6379/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'IGNORE_EXCEPTIONS': True,  # Don't break on Redis errors
-        },
-        'KEY_PREFIX': 'sapatest'
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
     }
 }
 
-# Use a fallback caching system in case Redis fails
-DJANGO_REDIS_IGNORE_EXCEPTIONS = True
-
-# Cache timeout value
-CACHE_TTL = 60 * 15  # 15 minutes
-
-# Session Configuration - Use Redis for sessions
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
+# Remove these lines if they exist
+# SESSION_CACHE_ALIAS = "default"
+# CACHE_TTL = 60 * 15
+# DJANGO_REDIS_IGNORE_EXCEPTIONS = True
