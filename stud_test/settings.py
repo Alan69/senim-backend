@@ -127,8 +127,8 @@ MIDDLEWARE = [
 ]
 
 # set false in prod
-CORS_ALLOW_ALL_ORIGINS = True
-SECURE_CROSS_ORIGIN_OPENER_POLICY=None
+# CORS_ALLOW_ALL_ORIGINS = True
+# SECURE_CROSS_ORIGIN_OPENER_POLICY=None
 SESSION_COOKIE_SECURE = True
 
 # CORS_ALLOWED_ORIGINS = [
@@ -136,9 +136,15 @@ SESSION_COOKIE_SECURE = True
 #     "http://127.0.0.1:5173",
 # ]
 
+# Update CORS settings
+CORS_ALLOWED_ORIGINS = [
+    "https://sapatest.com",
+    "https://www.sapatest.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 CORS_ALLOW_CREDENTIALS = True
-
 
 AUTH_USER_MODEL = 'accounts.User'
 
@@ -159,7 +165,13 @@ CSRF_COOKIE_SECURE = True  # Use True if using HTTPS
 CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to the CSRF cookie
 CSRF_COOKIE_AGE = 31449600  # 1 year in seconds
 
-CSRF_TRUSTED_ORIGINS = ['https://api.sapatest.com', 'https://www.api.sapatest.com']
+# Make sure this is also updated
+CSRF_TRUSTED_ORIGINS = [
+    'https://api.sapatest.com', 
+    'https://www.api.sapatest.com',
+    'https://sapatest.com',
+    'https://www.sapatest.com'
+]
 
 ROOT_URLCONF = 'stud_test.urls'
 

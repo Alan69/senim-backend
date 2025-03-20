@@ -4,7 +4,7 @@ services:
   app:
     build:
       context: .
-    command: gunicorn --bind 0.0.0.0:8000 stud_test.wsgi:application --workers=4 --threads=2 --log-level debug --access-logfile - --error-logfile -
+    command: gunicorn --bind 0.0.0.0:8000 stud_test.wsgi:application --workers=4 --threads=2 --timeout=120 --keep-alive=5 --log-level debug --access-logfile - --error-logfile -
     ports:
       - "8000:8000"
     volumes:
