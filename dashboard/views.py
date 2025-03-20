@@ -23,7 +23,6 @@ from django.views.decorators.cache import cache_page
 from django.conf import settings
 
 @login_required
-@cache_page(60 * 15)
 def test_list(request):
     tests = Product.objects.all()
     return render(request, 'dashboard/test_list.html', {'tests': tests})
