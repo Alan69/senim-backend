@@ -8,6 +8,12 @@ class Product(models.Model):
     class ProductType(models.TextChoices):
         STUDENT = 'STUDENT', 'Student'
         TEACHER = 'TEACHER', 'Teacher'
+    
+    class ProdcutActualName(models.TextChoices):
+        ENT = 'ENT', 'ENT'
+        OZP = 'OZP', 'OZP'
+        REZERV = 'REZERV', 'REZERV'
+        ADMIN_SREZ = 'ADMIN_SREZ', 'ADMIN_SREZ'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=200, blank=True, verbose_name='Имя')
@@ -21,6 +27,13 @@ class Product(models.Model):
         max_length=10,
         choices=ProductType.choices,
         default=ProductType.STUDENT,
+        verbose_name='Тип продукта'
+    )
+
+    product_actual_name = models.CharField(
+        max_length=10,
+        choices=ProdcutActualName.choices,
+        default=ProdcutActualName.ENT,
         verbose_name='Тип продукта'
     )
 

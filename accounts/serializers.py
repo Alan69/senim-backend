@@ -63,23 +63,41 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
     region = serializers.PrimaryKeyRelatedField(queryset=Region.objects.all(), required=False, allow_null=True)
+    user_type = serializers.ChoiceField(choices=User.UserType.choices, required=True)
+    grade = serializers.ChoiceField(choices=User.Grade.choices, required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'password', 'password2', 'region', 'school')
+        fields = ('username', 'first_name', 'last_name', 'password', 'password2', 'region', 'school', 'user_type', 'grade')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
+
+        # Validate that students must select a grade
+        if attrs.get('user_type') == User.UserType.STUDENT and not attrs.get('grade'):
+            raise serializers.ValidationError({"grade": "Students must select a grade."})
 
         return attrs
 
     def create(self, validated_data):
         password = validated_data.pop('password')
         validated_data.pop('password2', None)
+        user_type = validated_data.pop('user_type', User.UserType.STUDENT)
+        grade = validated_data.pop('grade', None)
+        
+        # Set appropriate flags based on user_type
+        is_student = user_type == User.UserType.STUDENT
+        is_teacher = user_type == User.UserType.TEACHER
         
         # Create the user with other fields
-        user = User.objects.create(**validated_data)
+        user = User.objects.create(
+            **validated_data,
+            is_student=is_student,
+            is_teacher=is_teacher,
+            user_type=user_type,
+            grade=grade
+        )
         
         # Set the password
         user.set_password(password)
@@ -88,15 +106,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class UserSerializer(serializers.ModelSerializer):
-
-    region = serializers.SerializerMethodField()
+    region = RegionSerializer()
 
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'region', 'school', 'balance', 'referral_link', 'referral_bonus', 'test_is_started', 'is_student', 'is_teacher')
-
-    def get_region(self, obj):
-        return obj.region.name if obj.region else None
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'phone_number', 'region', 'school', 'balance', 'is_staff', 'is_student', 'is_teacher', 'is_principal', 'test_is_started', 'user_type', 'grade']
+        read_only_fields = ['id', 'balance', 'is_staff', 'is_student', 'is_teacher', 'is_principal']
 
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True, required=True)

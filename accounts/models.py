@@ -82,6 +82,32 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False, verbose_name="Это сотрудник?")
     is_active = models.BooleanField(default=True, verbose_name="Активность?")
     is_superuser = models.BooleanField(default=False, verbose_name="Суперадмин")
+    
+    class UserType(models.TextChoices):
+        STUDENT = 'STUDENT', 'Student'
+        TEACHER = 'TEACHER', 'Teacher'
+    
+    class Grade(models.TextChoices):
+        GRADE_4 = '4', 'Grade 4'
+        GRADE_9 = '9', 'Grade 9'
+        GRADE_11 = '11', 'Grade 11'
+        NONE = '0', 'None'
+    
+    user_type = models.CharField(
+        max_length=10,
+        choices=UserType.choices,
+        default=UserType.STUDENT,
+        verbose_name='User Type'
+    )
+    
+    grade = models.CharField(
+        max_length=2,
+        choices=Grade.choices,
+        default=Grade.NONE,
+        verbose_name='Grade',
+        blank=True,
+        null=True
+    )
 
     objects = CustomUserManager()
 

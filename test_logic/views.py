@@ -29,6 +29,39 @@ logger = logging.getLogger(__name__)
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Product.objects.all()
+
+        # Filter based on user type
+        if user.user_type == 'TEACHER':
+            # Teachers can only see OZP and REZERV products
+            queryset = queryset.filter(
+                product_actual_name__in=[
+                    Product.ProdcutActualName.OZP,
+                    Product.ProdcutActualName.REZERV
+                ]
+            )
+        elif user.user_type == 'STUDENT':
+            # Further filter based on student's grade
+            if user.grade == '4' or user.grade == '9':
+                # Show ADMIN_SREZ products for the specific grade
+                queryset = queryset.filter(
+                    product_actual_name=Product.ProdcutActualName.ADMIN_SREZ
+                )
+                # Join with Test model to filter by grade
+                tests = Test.objects.filter(grade=int(user.grade))
+                test_products = [test.product.id for test in tests]
+                queryset = queryset.filter(id__in=test_products)
+            elif user.grade == '11':
+                # Show only ENT products
+                queryset = queryset.filter(
+                    product_actual_name=Product.ProdcutActualName.ENT
+                )
+
+        return queryset
 
 
 class TestViewSet(viewsets.ModelViewSet):

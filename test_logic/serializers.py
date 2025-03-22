@@ -125,7 +125,7 @@ class ProductSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Product
-        fields = ['id', 'title', 'sum', 'description', 'time', 'subject_limit', 'product_type']
+        fields = ['id', 'title', 'sum', 'description', 'time', 'subject_limit', 'product_type', 'product_actual_name']
     
     def get_subject_limit(self, obj):
         # Check if the product ID matches one of the specified IDs
