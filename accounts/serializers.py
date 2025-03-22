@@ -105,6 +105,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
+class RegionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Region
+        fields = ['id', 'name', 'region_type', 'description']
+
 class UserSerializer(serializers.ModelSerializer):
     region = RegionSerializer()
 
@@ -117,11 +122,6 @@ class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True, required=True)
     new_password = serializers.CharField(write_only=True, required=True)
     new_password2 = serializers.CharField(write_only=True, required=True)
-
-class RegionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Region
-        fields = ['id', 'name', 'region_type', 'description']
 
 class UserPUTSerializer(serializers.ModelSerializer):
     # region = RegionSerializer()
