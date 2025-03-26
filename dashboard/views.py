@@ -266,7 +266,7 @@ def export_to_excel(completed_tests):
     row = 1
     
     # Limit the number of records to process to avoid timeout
-    max_records = 1000
+    max_records = 1000000
     record_count = 0
     
     for completed_test in completed_tests.iterator():
