@@ -266,7 +266,7 @@ def export_to_excel(completed_tests):
     row = 1
     
     # Limit the number of records to process to avoid timeout
-    max_records = 1000000
+    max_records = 10000
     record_count = 0
     
     for completed_test in completed_tests.iterator():
@@ -702,3 +702,53 @@ def reset_test_status(request):
     }
     
     return render(request, 'dashboard/reset_test_status.html', context)
+
+@login_required
+def export_by_date(request):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.is_principal):
+        messages.error(request, "У вас нет прав для доступа к этой странице.")
+        return redirect('test_statistics')
+    
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    
+    if not start_date or not end_date:
+        messages.error(request, "Необходимо указать начальную и конечную даты.")
+        return redirect('test_statistics')
+        
+    # Get completed tests filtered by date
+    completed_tests = CompletedTest.objects.select_related(
+        'user', 
+        'user__region',
+        'product'
+    ).filter(
+        completed_date__gte=start_date,
+        completed_date__lte=end_date
+    ).order_by('-completed_date')
+    
+    # Export to Excel
+    return export_to_excel(completed_tests)
+
+@login_required
+def export_by_school(request):
+    if not (request.user.is_staff or request.user.is_superuser or request.user.is_principal):
+        messages.error(request, "У вас нет прав для доступа к этой странице.")
+        return redirect('test_statistics')
+    
+    school = request.GET.get('school')
+    
+    if not school:
+        messages.error(request, "Необходимо указать школу.")
+        return redirect('test_statistics')
+    
+    # Get completed tests filtered by school
+    completed_tests = CompletedTest.objects.select_related(
+        'user', 
+        'user__region',
+        'product'
+    ).filter(
+        user__school__iexact=school
+    ).order_by('-completed_date')
+    
+    # Export to Excel
+    return export_to_excel(completed_tests)
