@@ -709,65 +709,77 @@ def export_by_date(request):
         messages.error(request, "У вас нет прав для доступа к этой странице.")
         return redirect('test_statistics')
     
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
+    try:
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        if not start_date or not end_date:
+            messages.error(request, "Необходимо указать начальную и конечную даты.")
+            return redirect('test_statistics')
+        
+        # Get date range information first to avoid memory issues
+        from django.db.models.functions import TruncDate
+        from django.db.models import Count
+        
+        # Get counts by date to determine which dates have data
+        date_counts = CompletedTest.objects.filter(
+            completed_date__gte=start_date,
+            completed_date__lte=end_date
+        ).annotate(
+            date_only=TruncDate('completed_date')
+        ).values('date_only').annotate(
+            count=Count('id')
+        ).order_by('date_only')
+        
+        # If no tests, show error
+        if not date_counts:
+            messages.error(request, "Нет данных за указанный период.")
+            return redirect('test_statistics')
+        
+        # Create a ZIP file to hold multiple Excel files
+        import zipfile
+        import io
+        from datetime import datetime
+        
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
+            for i, date_group in enumerate(date_counts):
+                date_str = date_group['date_only'].strftime('%Y-%m-%d')
+                
+                # Get tests for this date in smaller batches
+                date_tests = CompletedTest.objects.select_related(
+                    'user', 
+                    'user__region',
+                    'product'
+                ).filter(
+                    completed_date__date=date_group['date_only']
+                ).order_by('-completed_date')
+                
+                # Create Excel for this date
+                excel_buffer = io.BytesIO()
+                create_excel_file(date_tests, excel_buffer)
+                
+                # Add Excel file to ZIP with unique filename
+                filename = f"tests_{date_str}_{i}.xlsx"
+                zip_file.writestr(filename, excel_buffer.getvalue())
+        
+        # Prepare response
+        zip_buffer.seek(0)
+        response = HttpResponse(
+            zip_buffer.read(),
+            content_type='application/zip'
+        )
+        response['Content-Disposition'] = f'attachment; filename=tests_by_date_{start_date}_to_{end_date}.zip'
+        
+        return response
     
-    if not start_date or not end_date:
-        messages.error(request, "Необходимо указать начальную и конечную даты.")
+    except Exception as e:
+        import traceback
+        print(f"Error in export_by_date: {str(e)}")
+        print(traceback.format_exc())
+        messages.error(request, f"Произошла ошибка при экспорте: {str(e)}")
         return redirect('test_statistics')
-    
-    # Get all completed tests within the date range
-    completed_tests = CompletedTest.objects.select_related(
-        'user', 
-        'user__region',
-        'product'
-    ).filter(
-        completed_date__gte=start_date,
-        completed_date__lte=end_date
-    ).order_by('-completed_date')
-    
-    # Group by date (using date part only)
-    from django.db.models.functions import TruncDate
-    from django.db.models import Count
-    
-    # Annotate with just the date part and group
-    dates = completed_tests.annotate(date_only=TruncDate('completed_date')).values('date_only').annotate(count=Count('id')).order_by('date_only')
-    
-    # If no tests, show error
-    if not dates:
-        messages.error(request, "Нет данных за указанный период.")
-        return redirect('test_statistics')
-    
-    # Create a ZIP file to hold multiple Excel files
-    import zipfile
-    import io
-    from datetime import datetime
-    
-    zip_buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
-        for date_group in dates:
-            date_str = date_group['date_only'].strftime('%Y-%m-%d')
-            
-            # Get tests for this date
-            date_tests = completed_tests.filter(completed_date__date=date_group['date_only'])
-            
-            # Create Excel for this date
-            excel_buffer = io.BytesIO()
-            create_excel_file(date_tests, excel_buffer)
-            
-            # Add Excel file to ZIP
-            zip_file.writestr(f"tests_{date_str}.xlsx", excel_buffer.getvalue())
-    
-    # Prepare response
-    zip_buffer.seek(0)
-    response = HttpResponse(
-        zip_buffer.read(),
-        content_type='application/zip'
-    )
-    response['Content-Disposition'] = f'attachment; filename=tests_by_date_{start_date}_to_{end_date}.zip'
-    
-    return response
 
 @login_required
 def export_by_school(request):
@@ -775,174 +787,213 @@ def export_by_school(request):
         messages.error(request, "У вас нет прав для доступа к этой странице.")
         return redirect('test_statistics')
     
-    # Get all schools with completed tests
-    from django.db.models import Count
-    
-    schools = CompletedTest.objects.select_related('user').values('user__school').annotate(count=Count('id')).order_by('user__school')
-    
-    # If no schools, show error
-    if not schools:
-        messages.error(request, "Нет данных для экспорта.")
+    try:
+        # Get all schools with completed tests
+        from django.db.models import Count
+        
+        schools = CompletedTest.objects.values(
+            'user__school'
+        ).annotate(
+            count=Count('id')
+        ).filter(
+            count__gt=0
+        ).order_by('user__school')
+        
+        # If no schools, show error
+        if not schools:
+            messages.error(request, "Нет данных для экспорта.")
+            return redirect('test_statistics')
+        
+        # Create a ZIP file to hold multiple Excel files
+        import zipfile
+        import io
+        import re
+        
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
+            # Use a counter to ensure filenames are unique
+            for i, school_group in enumerate(schools):
+                school_name = school_group['user__school'] or 'Unknown_School'
+                
+                # Sanitize filename more aggressively
+                safe_school_name = re.sub(r'[^\w]', '_', school_name)
+                # Limit filename length
+                if len(safe_school_name) > 30:
+                    safe_school_name = safe_school_name[:30]
+                
+                # Get tests for this school
+                school_tests = CompletedTest.objects.select_related(
+                    'user', 
+                    'user__region',
+                    'product'
+                ).filter(
+                    user__school=school_name
+                ).order_by('-completed_date')
+                
+                # Only process if there are tests
+                if school_tests.exists():
+                    # Create Excel for this school
+                    excel_buffer = io.BytesIO()
+                    create_excel_file(school_tests, excel_buffer)
+                    
+                    # Add Excel file to ZIP with unique index
+                    filename = f"tests_{safe_school_name}_{i}.xlsx"
+                    zip_file.writestr(filename, excel_buffer.getvalue())
+        
+        # Prepare response
+        zip_buffer.seek(0)
+        response = HttpResponse(
+            zip_buffer.read(),
+            content_type='application/zip'
+        )
+        response['Content-Disposition'] = 'attachment; filename=tests_by_school.zip'
+        
+        return response
+        
+    except Exception as e:
+        import traceback
+        print(f"Error in export_by_school: {str(e)}")
+        print(traceback.format_exc())
+        messages.error(request, f"Произошла ошибка при экспорте: {str(e)}")
         return redirect('test_statistics')
-    
-    # Create a ZIP file to hold multiple Excel files
-    import zipfile
-    import io
-    
-    zip_buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED, False) as zip_file:
-        for school_group in schools:
-            school_name = school_group['user__school'] or 'Unknown_School'
-            
-            # Sanitize filename (remove special characters)
-            import re
-            safe_school_name = re.sub(r'[^\w\-_\.]', '_', school_name)
-            
-            # Get tests for this school
-            school_tests = CompletedTest.objects.select_related(
-                'user', 
-                'user__region',
-                'product'
-            ).filter(user__school=school_name).order_by('-completed_date')
-            
-            # Create Excel for this school
-            excel_buffer = io.BytesIO()
-            create_excel_file(school_tests, excel_buffer)
-            
-            # Add Excel file to ZIP
-            zip_file.writestr(f"tests_{safe_school_name}.xlsx", excel_buffer.getvalue())
-    
-    # Prepare response
-    zip_buffer.seek(0)
-    response = HttpResponse(
-        zip_buffer.read(),
-        content_type='application/zip'
-    )
-    response['Content-Disposition'] = 'attachment; filename=tests_by_school.zip'
-    
-    return response
 
 def create_excel_file(completed_tests, output_buffer):
     """Helper function to create Excel files with the same format as export_to_excel"""
-    
-    workbook = xlsxwriter.Workbook(output_buffer, {'constant_memory': True})
-    
-    # Create formats
-    header_format = workbook.add_format({
-        'bold': True,
-        'align': 'center',
-        'valign': 'vcenter',
-        'bg_color': '#f0f0f0'
-    })
-    
-    # Create worksheet with basic structure first
-    worksheet = workbook.add_worksheet('Общая статистика')
-    
-    # Define base headers
-    base_headers = [
-        'Пользователь', 'Регион', 'Школа', 'Дата завершения',
-        'Тест', 'Правильных', 'Неправильных', 'Всего вопросов', 'Результат (%)'
-    ]
-    
-    # Set column widths for better readability
-    worksheet.set_column(0, 0, 30)  # User name
-    worksheet.set_column(1, 1, 20)  # Region
-    worksheet.set_column(2, 2, 20)  # School
-    worksheet.set_column(3, 3, 20)  # Date
-    worksheet.set_column(4, 4, 30)  # Test name
-    worksheet.set_column(5, 8, 15)  # Other columns
-    
-    # Write headers
-    for col, header in enumerate(base_headers):
-        worksheet.write(0, col, header, header_format)
-    
-    # Process and write data
-    row = 1
-    
-    # Limit the number of records to process to avoid timeout
-    max_records = 10000
-    record_count = 0
-    
-    for completed_test in completed_tests:
-        try:
-            if record_count >= max_records:
-                break
-                
-            record_count += 1
+    try:
+        workbook = xlsxwriter.Workbook(output_buffer, {'constant_memory': True})
+        
+        # Create formats
+        header_format = workbook.add_format({
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'bg_color': '#f0f0f0'
+        })
+        
+        # Create worksheet with basic structure first
+        worksheet = workbook.add_worksheet('Общая статистика')
+        
+        # Define base headers
+        base_headers = [
+            'Пользователь', 'Регион', 'Школа', 'Дата завершения',
+            'Тест', 'Правильных', 'Неправильных', 'Всего вопросов', 'Результат (%)'
+        ]
+        
+        # Set column widths for better readability
+        worksheet.set_column(0, 0, 30)  # User name
+        worksheet.set_column(1, 1, 20)  # Region
+        worksheet.set_column(2, 2, 20)  # School
+        worksheet.set_column(3, 3, 20)  # Date
+        worksheet.set_column(4, 4, 30)  # Test name
+        worksheet.set_column(5, 8, 15)  # Other columns
+        
+        # Write headers
+        for col, header in enumerate(base_headers):
+            worksheet.write(0, col, header, header_format)
+        
+        # Process and write data
+        row = 1
+        
+        # Limit the number of records to process to avoid timeout
+        max_records = 5000  # Reduced from 10000
+        record_count = 0
+        
+        # Batch processing for large datasets
+        batch_size = 100
+        completed_tests_ids = completed_tests.values_list('id', flat=True)[:max_records]
+        
+        # Process in batches
+        for i in range(0, len(completed_tests_ids), batch_size):
+            batch_ids = completed_tests_ids[i:i+batch_size]
+            batch = CompletedTest.objects.select_related('user', 'user__region', 'product').filter(id__in=batch_ids)
             
-            # Get user info once
-            user_name = f"{completed_test.user.first_name} {completed_test.user.last_name}"
-            region = str(completed_test.user.region)
-            school = completed_test.user.school
-            date = completed_test.completed_date.strftime('%Y-%m-%d %H:%M')
-            
-            # Get all tests for this completed test
-            test_ids = completed_test.tests.values_list('id', 'title')
-            
-            # Create a dictionary to store test statistics
-            test_stats = {}
-            for test_id, test_title in test_ids:
-                test_stats[test_id] = {
-                    'title': test_title,
-                    'correct': 0,
-                    'wrong': 0,
-                    'total': 0
-                }
-            
-            # Get completed questions with their test IDs
-            from django.db import connection
-            with connection.cursor() as cursor:
-                # Execute a raw SQL query to get the correct/incorrect counts by test
-                cursor.execute("""
-                    SELECT 
-                        cq.test_id, 
-                        COUNT(CASE WHEN o.is_correct THEN 1 END) as correct_count,
-                        COUNT(CASE WHEN NOT o.is_correct THEN 1 END) as wrong_count,
-                        COUNT(cq.id) as total_count
-                    FROM 
-                        test_logic_completedquestion cq
-                    JOIN 
-                        test_logic_completedquestion_selected_option cqso ON cq.id = cqso.completedquestion_id
-                    JOIN 
-                        test_logic_option o ON cqso.option_id = o.id
-                    WHERE 
-                        cq.completed_test_id = %s
-                    GROUP BY 
-                        cq.test_id
-                """, [str(completed_test.id)])
-                
-                results = cursor.fetchall()
-            
-            # Process the results
-            for test_id, correct_count, wrong_count, total_count in results:
-                if test_id in test_stats:
-                    test_stats[test_id]['correct'] = correct_count
-                    test_stats[test_id]['wrong'] = wrong_count
-                    test_stats[test_id]['total'] = total_count
-            
-            # Write one row per test for this user
-            for test_id, stats in test_stats.items():
-                if stats['total'] > 0:  # Only write rows for tests with questions
-                    # Calculate test-specific percentage
-                    test_percentage = round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
+            for completed_test in batch:
+                try:
+                    record_count += 1
                     
-                    # Write data
-                    worksheet.write(row, 0, user_name)
-                    worksheet.write(row, 1, region)
-                    worksheet.write(row, 2, school)
-                    worksheet.write(row, 3, date)
-                    worksheet.write(row, 4, stats['title'])
-                    worksheet.write(row, 5, stats['correct'])
-                    worksheet.write(row, 6, stats['wrong'])
-                    worksheet.write(row, 7, stats['total'])
-                    worksheet.write(row, 8, test_percentage)
+                    # Get user info once
+                    user_name = f"{completed_test.user.first_name} {completed_test.user.last_name}"
+                    region = str(completed_test.user.region) if completed_test.user.region else "Не указан"
+                    school = completed_test.user.school or "Не указана"
+                    date = completed_test.completed_date.strftime('%Y-%m-%d %H:%M')
                     
-                    row += 1
-                
-        except Exception as e:
-            # Log the error but continue processing other records
-            print(f"Error processing completed test {completed_test.id}: {str(e)}")
-            continue
-    
-    workbook.close()
+                    # Get all tests for this completed test
+                    test_ids = completed_test.tests.values_list('id', 'title')
+                    
+                    # Skip if no tests
+                    if not test_ids:
+                        continue
+                    
+                    # Create a dictionary to store test statistics
+                    test_stats = {}
+                    for test_id, test_title in test_ids:
+                        test_stats[test_id] = {
+                            'title': test_title,
+                            'correct': 0,
+                            'wrong': 0,
+                            'total': 0
+                        }
+                    
+                    # More efficient query to get statistics
+                    from django.db.models import Sum, Case, When, IntegerField, Count, Q
+                    
+                    # Get statistics with a more efficient query
+                    completed_questions = CompletedQuestion.objects.filter(
+                        completed_test_id=completed_test.id
+                    ).values(
+                        'test_id'
+                    ).annotate(
+                        total=Count('id'),
+                        correct=Sum(
+                            Case(
+                                When(
+                                    Q(selected_option__is_correct=True) & ~Q(selected_option__is_correct=False),
+                                    then=1
+                                ),
+                                default=0,
+                                output_field=IntegerField()
+                            )
+                        )
+                    )
+                    
+                    # Process the results
+                    for question_stat in completed_questions:
+                        test_id = question_stat['test_id']
+                        if test_id in test_stats:
+                            test_stats[test_id]['correct'] = question_stat['correct']
+                            test_stats[test_id]['total'] = question_stat['total']
+                            test_stats[test_id]['wrong'] = question_stat['total'] - question_stat['correct']
+                    
+                    # Write one row per test for this user
+                    for test_id, stats in test_stats.items():
+                        if stats['total'] > 0:  # Only write rows for tests with questions
+                            # Calculate test-specific percentage
+                            test_percentage = round((stats['correct'] / stats['total']) * 100, 2) if stats['total'] > 0 else 0
+                            
+                            # Write data
+                            worksheet.write(row, 0, user_name)
+                            worksheet.write(row, 1, region)
+                            worksheet.write(row, 2, school)
+                            worksheet.write(row, 3, date)
+                            worksheet.write(row, 4, stats['title'])
+                            worksheet.write(row, 5, stats['correct'])
+                            worksheet.write(row, 6, stats['wrong'])
+                            worksheet.write(row, 7, stats['total'])
+                            worksheet.write(row, 8, test_percentage)
+                            
+                            row += 1
+                    
+                except Exception as e:
+                    # Log the error but continue processing other records
+                    print(f"Error processing completed test {completed_test.id}: {str(e)}")
+                    continue
+        
+        workbook.close()
+    except Exception as e:
+        import traceback
+        print(f"Error in create_excel_file: {str(e)}")
+        print(traceback.format_exc())
+        # Make sure workbook is closed even on error
+        if 'workbook' in locals():
+            workbook.close()
